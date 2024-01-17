@@ -8,13 +8,11 @@ public class AppState {
     private SelectionType selectionType;
     private Vertex selectedVertex;
     private Edge selectedEdge;
-    private boolean isDrawingEdge;
 
     public AppState() {
         this.selectionType = SelectionType.NONE;
         this.selectedVertex = null;
         this.selectedEdge = null;
-        this.isDrawingEdge = false;
     }
 
     public SelectionType getSelectionType() {
@@ -43,19 +41,10 @@ public class AppState {
         this.selectionType = SelectionType.EDGE; // Automatically update selection type
     }
 
-    public boolean isDrawingEdge() {
-        return isDrawingEdge;
-    }
-
-    public void setDrawingEdge(boolean isDrawingEdge) {
-        this.isDrawingEdge = isDrawingEdge;
-    }
-
     public void restoreFromMemento(AppStateMemento previousState) {
         this.selectionType = previousState.getSelectionType();
         this.selectedVertex = previousState.getSelectedVertex();
         this.selectedEdge = previousState.getSelectedEdge();
-        this.isDrawingEdge = previousState.isDrawingEdge();
     }
 }
 

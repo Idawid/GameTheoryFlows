@@ -5,9 +5,11 @@ import app.managers.graph.common.Vertex;
 import app.managers.view.common.SelectionResult;
 import app.managers.view.common.SelectionType;
 import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
@@ -19,8 +21,10 @@ import java.util.Map;
 
 public class GraphViewManager {
     private Pane graphView;
+    private Pane edgeLayer;
+    private Pane vertexLayer;
     private Map<Vertex, Group> vertexGraphicsMap;
-    private Map<Edge, Line> edgeGraphicsMap;
+    private Map<Edge, Group> edgeGraphicsMap;
     private final double gridSpacing = 20;
 
     private Line tempEdgeLine;
@@ -28,7 +32,12 @@ public class GraphViewManager {
     public GraphViewManager(Scene scene) {
         this.vertexGraphicsMap = new HashMap<>();
         this.edgeGraphicsMap = new HashMap<>();
+
         this.graphView = new Pane();
+        this.edgeLayer = new Pane();
+        this.vertexLayer = new Pane();
+
+        graphView.getChildren().addAll(edgeLayer, vertexLayer);
         scene.setRoot(graphView);
 
         createGridBackground(scene);
@@ -81,7 +90,7 @@ public class GraphViewManager {
 
             vertexGroup = new Group(vertexCircle, vertexIdText);
             vertexGraphicsMap.put(vertex, vertexGroup);
-            graphView.getChildren().add(vertexGroup);
+            vertexLayer.getChildren().add(vertexGroup);
         } else {
             updateVertexPosition(vertex, vertexGroup);
         }
@@ -97,61 +106,88 @@ public class GraphViewManager {
     }
 
     public void drawEdge(Edge edge) {
-        Line edgeLine = edgeGraphicsMap.get(edge);
-        if (edgeLine == null) {
-            edgeLine = new Line(edge.getFrom().getX(), edge.getFrom().getY(), edge.getTo().getX(), edge.getTo().getY());
-            edgeLine.setStroke(Color.BLACK);
-            edgeLine.setStrokeWidth(1.0);
+        Group edgeGroup = edgeGraphicsMap.get(edge);
+        if (edgeGroup == null) {
+            edgeGroup = new Group();
 
-            edgeGraphicsMap.put(edge, edgeLine);
-            graphView.getChildren().add(edgeLine);
+            // Create the border lines
+            Line line1 = new Line(edge.getFrom().getX(), edge.getFrom().getY(), edge.getTo().getX(), edge.getTo().getY());
+            Line line2 = new Line(edge.getFrom().getX(), edge.getFrom().getY(), edge.getTo().getX(), edge.getTo().getY());
+            Line middleLine = new Line(edge.getFrom().getX(), edge.getFrom().getY(), edge.getTo().getX(), edge.getTo().getY());
+
+            // Set properties for the border lines
+            double offset = 2.0; // Offset for the border lines
+            adjustLinePosition(line1, edge, offset);
+            adjustLinePosition(line2, edge, -offset);
+            line1.setStrokeWidth(1);
+            line2.setStrokeWidth(1);
+
+            // Set properties for the middle line
+            middleLine.setStroke(Color.YELLOW);
+            middleLine.setStrokeWidth(3.0); // Thicker line
+
+            edgeGroup.getChildren().addAll(line1, middleLine, line2);
+            edgeGraphicsMap.put(edge, edgeGroup);
+            edgeLayer.getChildren().add(edgeGroup);
         } else {
-            updateEdgePosition(edge, edgeLine);
+            // Update existing edge position
+            updateEdgePosition(edge, edgeGroup);
         }
     }
 
-    private void updateEdgePosition(Edge edge, Line edgeLine) {
-        edgeLine.setStartX(edge.getFrom().getX());
-        edgeLine.setStartY(edge.getFrom().getY());
-        edgeLine.setEndX(edge.getTo().getX());
-        edgeLine.setEndY(edge.getTo().getY());
+    private void adjustLinePosition(Line line, Edge edge, double offset) {
+        double angle = Math.atan2(edge.getTo().getY() - edge.getFrom().getY(), edge.getTo().getX() - edge.getFrom().getX());
+        line.setStartX(line.getStartX() + offset * Math.cos(angle + Math.PI / 2));
+        line.setStartY(line.getStartY() + offset * Math.sin(angle + Math.PI / 2));
+        line.setEndX(line.getEndX() + offset * Math.cos(angle + Math.PI / 2));
+        line.setEndY(line.getEndY() + offset * Math.sin(angle + Math.PI / 2));
+    }
+
+    private void updateEdgePosition(Edge edge, Group edgeGroup) {
+//        edgeGroup.setStartX(edge.getFrom().getX());
+//        edgeGroup.setStartY(edge.getFrom().getY());
+//        edgeGroup.setEndX(edge.getTo().getX());
+//        edgeGroup.setEndY(edge.getTo().getY());
     }
 
     public void highlightVertex(Vertex vertex) {
         resetVertexSelection();
 
         // Highlight the selected vertex
-        Group selectedGroup = vertexGraphicsMap.get(vertex);
-        if (selectedGroup != null) {
-            Circle vertexCircle = (Circle) selectedGroup.getChildren().get(0);
-            vertexCircle.setStroke(Color.RED); // Highlight with red border
-            vertexCircle.setStrokeWidth(3.0); // Increase border width for highlight
+        Group vertexGroup = vertexGraphicsMap.get(vertex);
+        if (vertexGroup != null) {
+            DropShadow dropShadow = new DropShadow();
+            dropShadow.setColor(Color.DARKGRAY);
+            dropShadow.setRadius(2);
+            dropShadow.setSpread(10);
+
+            vertexGroup.setEffect(dropShadow);
         }
     }
 
     public void highlightEdge(Edge edge) {
         resetEdgeHighlight();
 
-        // Highlight the selected edge
-        Line edgeLine = edgeGraphicsMap.get(edge);
-        if (edgeLine != null) {
-            edgeLine.setStroke(Color.BLUE); // Highlight with blue color
-            edgeLine.setStrokeWidth(2.0); // Increase line width for highlight
+        Group edgeGroup = edgeGraphicsMap.get(edge);
+        if (edgeGroup != null) {
+            DropShadow dropShadow = new DropShadow();
+            dropShadow.setColor(Color.DARKGRAY);
+            dropShadow.setRadius(2);
+            dropShadow.setSpread(10);
+
+            edgeGroup.setEffect(dropShadow); // Apply drop shadow effect for highlighting
         }
     }
 
     public void resetVertexSelection() {
         for (Group group : vertexGraphicsMap.values()) {
-            Circle circle = (Circle) group.getChildren().get(0);
-            circle.setStroke(Color.BLACK); // Reset to default appearance
-            circle.setStrokeWidth(2.0); // Reset to default stroke width
+            group.setEffect(null);
         }
     }
 
     public void resetEdgeHighlight() {
-        for (Line line : edgeGraphicsMap.values()) {
-            line.setStroke(Color.BLACK); // Reset to default appearance
-            line.setStrokeWidth(1.0); // Reset to default stroke width
+        for (Group edgeGroup : edgeGraphicsMap.values()) {
+            edgeGroup.setEffect(null); // Remove any effects to reset the highlight
         }
     }
 
@@ -167,15 +203,19 @@ public class GraphViewManager {
         }
 
         // Check if an edge is clicked
-        for (Map.Entry<Edge, Line> entry : getEdgeGraphicsMap().entrySet()) {
+        for (Map.Entry<Edge, Group> entry : getEdgeGraphicsMap().entrySet()) {
             Edge edge = entry.getKey();
-            Line line = entry.getValue();
+            Group edgeGroup = entry.getValue();
 
-            if (isNearEdge(line, x, y, selectionThreshold)) {
-                return new SelectionResult(SelectionType.EDGE, edge);
+            for (Node node : edgeGroup.getChildren()) {
+                if (node instanceof Line) {
+                    Line line = (Line) node;
+                    if (isNearEdge(line, x, y, selectionThreshold)) {
+                        return new SelectionResult(SelectionType.EDGE, edge);
+                    }
+                }
             }
         }
-
         return new SelectionResult(SelectionType.NONE, null);
     }
 
@@ -208,7 +248,7 @@ public class GraphViewManager {
 
     public void startDrawingEdge(double startX, double startY) {
         tempEdgeLine = new Line(startX, startY, startX, startY);
-        graphView.getChildren().add(tempEdgeLine);
+        edgeLayer.getChildren().add(tempEdgeLine);
 
     }
 
@@ -221,7 +261,7 @@ public class GraphViewManager {
 
     public void stopDrawingEdge() {
         if (tempEdgeLine != null) {
-            graphView.getChildren().remove(tempEdgeLine);
+            edgeLayer.getChildren().remove(tempEdgeLine);
             tempEdgeLine = null;
         }
     }
@@ -232,11 +272,17 @@ public class GraphViewManager {
         return graphView;
     }
 
+    public Pane getVertexLayer() {
+        return vertexLayer;
+    }
+    public Pane getEdgeLayer() {
+        return edgeLayer;
+    }
     public Map<Vertex, Group> getVertexGraphicsMap() {
         return vertexGraphicsMap;
     }
 
-    public Map<Edge, Line> getEdgeGraphicsMap() {
+    public Map<Edge, Group> getEdgeGraphicsMap() {
         return edgeGraphicsMap;
     }
 }

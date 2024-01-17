@@ -63,12 +63,10 @@ public class AppController {
 
         if (selection.getType() == SelectionType.VERTEX) {
             Vertex selectedVertex = (Vertex) selection.getSelectedObject();
-            SelectVertexAction selectVertexAction = new SelectVertexAction(selectedVertex, graphManager, viewManager);
-            actionManager.performAction(selectVertexAction);
+            actionManager.selectVertex(selectedVertex);
         } else if (selection.getType() == SelectionType.EDGE) {
             Edge selectedEdge = (Edge) selection.getSelectedObject();
-            SelectEdgeAction selectEdgeAction = new SelectEdgeAction(selectedEdge, graphManager, viewManager);
-            actionManager.performAction(selectEdgeAction);
+            actionManager.selectEdge(selectedEdge);
         }
 
         state.setSelectionType(selection.getType());
@@ -106,7 +104,6 @@ public class AppController {
                     Edge newEdge = new Edge(state.getSelectedVertex(), endingVertex);
                     if (!graphManager.isEdgePresent(newEdge)) {
                         actionManager.addEdge(newEdge);
-                        viewManager.drawEdge(newEdge);
                     }
                 }
             }

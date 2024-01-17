@@ -3,6 +3,7 @@ package app.managers.action.common;
 import app.managers.graph.GraphManager;
 import app.managers.graph.common.Edge;
 import app.managers.view.GraphViewManager;
+import javafx.scene.Group;
 import javafx.scene.shape.Line;
 
 public class AddEdgeAction implements Action {
@@ -26,9 +27,9 @@ public class AddEdgeAction implements Action {
     public void undo() {
         graphManager.removeEdge(edge);
         // Update the view to remove the edge
-        Line edgeLine = viewManager.getEdgeGraphicsMap().get(edge);
+        Group edgeLine = viewManager.getEdgeGraphicsMap().get(edge);
         if (edgeLine != null) {
-            viewManager.getGraphView().getChildren().remove(edgeLine);
+            viewManager.getEdgeLayer().getChildren().remove(edgeLine);
             viewManager.getEdgeGraphicsMap().remove(edge);
         }
     }

@@ -23,7 +23,7 @@ public class RemoveVertexAction implements Action {
         graphManager.removeVertex(vertex);
         // Update the view to remove the vertex and its edges
         if (vertexGroup != null) {
-            viewManager.getGraphView().getChildren().remove(vertexGroup);
+            viewManager.getVertexLayer().getChildren().remove(vertexGroup);
         }
     }
 
@@ -32,7 +32,7 @@ public class RemoveVertexAction implements Action {
         graphManager.addVertex(vertex);
         // Update the view to restore the vertex and its edges
         if (vertexGroup != null) {
-            viewManager.getGraphView().getChildren().add(vertexGroup);
+            viewManager.getVertexLayer().getChildren().add(vertexGroup);
         }
     }
 }

@@ -28,7 +28,7 @@ public class GraphActionManager {
         this.redoStateStack = new Stack<>();
     }
 
-    public void performAction(Action action) {
+    private void performAction(Action action) {
         AppStateMemento stateBeforeAction = new AppStateMemento(state);
         undoStateStack.push(stateBeforeAction);
 
@@ -78,6 +78,11 @@ public class GraphActionManager {
         performAction(removeVertexAction);
     }
 
+    public void selectVertex(Vertex vertex) {
+        SelectVertexAction selectVertexAction = new SelectVertexAction(vertex, graphManager, viewManager);
+        performAction(selectVertexAction);
+    }
+
     public void addEdge(Edge edge) {
         AddEdgeAction addEdgeAction = new AddEdgeAction(edge, graphManager, viewManager);
         performAction(addEdgeAction);
@@ -86,6 +91,11 @@ public class GraphActionManager {
     public void removeEdge(Edge edge) {
         RemoveEdgeAction removeEdgeAction = new RemoveEdgeAction(edge, graphManager, viewManager);
         performAction(removeEdgeAction);
+    }
+
+    public void selectEdge(Edge edge) {
+        SelectEdgeAction selectEdgeAction = new SelectEdgeAction(edge, graphManager, viewManager);
+        performAction(selectEdgeAction);
     }
 }
 

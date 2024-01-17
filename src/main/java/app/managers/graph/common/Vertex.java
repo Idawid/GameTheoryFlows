@@ -23,7 +23,5 @@ public class Vertex {
     public double getY() {
         return y;
     }
-
-    // Optionally, override equals and hashCode based on the id field
 }
 

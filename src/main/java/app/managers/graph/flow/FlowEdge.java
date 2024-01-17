@@ -4,6 +4,7 @@ import app.managers.graph.common.Edge;
 import app.managers.graph.common.Vertex;
 import net.objecthunter.exp4j.Expression;
 import net.objecthunter.exp4j.ExpressionBuilder;
+import net.objecthunter.exp4j.ValidationResult;
 
 public class FlowEdge extends Edge {
     private double currentFlow;
@@ -12,7 +13,7 @@ public class FlowEdge extends Edge {
 
     public FlowEdge(Vertex from, Vertex to, String costFunction) {
         super(from, to);
-        this.costFunction = costFunction;
+        setCostFunction(costFunction);
         compileCostFunction();
     }
 
@@ -28,8 +29,27 @@ public class FlowEdge extends Edge {
     }
 
     public double getCurrentCost() {
+        compiledCostFunction.setVariable("x", currentFlow);
         return compiledCostFunction.evaluate();
     }
 
-    // Getters and setters for currentFlow and costFunction...
+    public double getCurrentFlow() {
+        return currentFlow;
+    }
+
+    public String getCostFunction() {
+        return costFunction;
+    }
+
+    public void setCostFunction(String costFunction) {
+        Expression dummyExp = new ExpressionBuilder(costFunction).variable("x").build().setVariable("x", 0.0);
+        ValidationResult res = dummyExp.validate();
+        if (!res.isValid()) {
+            // Expression costFunction is not valid
+            throw new IllegalArgumentException("Invalid cost function");
+        }
+
+        this.costFunction = costFunction;
+        this.compileCostFunction();
+    }
 }

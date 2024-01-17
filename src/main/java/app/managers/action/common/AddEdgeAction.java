@@ -26,12 +26,7 @@ public class AddEdgeAction implements Action {
     @Override
     public void undo() {
         graphManager.removeEdge(edge);
-        // Update the view to remove the edge
-        Group edgeLine = viewManager.getEdgeGraphicsMap().get(edge);
-        if (edgeLine != null) {
-            viewManager.getEdgeLayer().getChildren().remove(edgeLine);
-            viewManager.getEdgeGraphicsMap().remove(edge);
-        }
+        viewManager.undrawEdge(edge);
     }
 }
 

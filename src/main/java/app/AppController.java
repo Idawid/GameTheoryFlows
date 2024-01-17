@@ -64,9 +64,11 @@ public class AppController {
         if (selection.getType() == SelectionType.VERTEX) {
             Vertex selectedVertex = (Vertex) selection.getSelectedObject();
             actionManager.selectVertex(selectedVertex);
+            state.setSelectedVertex(selectedVertex);
         } else if (selection.getType() == SelectionType.EDGE) {
             Edge selectedEdge = (Edge) selection.getSelectedObject();
             actionManager.selectEdge(selectedEdge);
+            state.setSelectedEdge(selectedEdge);
         }
 
         state.setSelectionType(selection.getType());
@@ -107,7 +109,6 @@ public class AppController {
                     }
                 }
             }
-
             resetSelection();
         }
     }

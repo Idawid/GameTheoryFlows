@@ -25,11 +25,7 @@ public class AddVertexAction implements Action {
     @Override
     public void undo() {
         graphManager.removeVertex(vertex);
-        Group vertexGroup = viewManager.getVertexGraphicsMap().get(vertex);
-        if (vertexGroup != null) {
-            viewManager.getVertexLayer().getChildren().remove(vertexGroup);
-            viewManager.getVertexGraphicsMap().remove(vertex);
-        }
+        viewManager.undrawVertex(vertex);
     }
 }
 

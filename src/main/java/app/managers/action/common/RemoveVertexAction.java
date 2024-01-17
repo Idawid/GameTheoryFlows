@@ -1,39 +1,38 @@
 package app.managers.action.common;
 
 import app.managers.graph.GraphManager;
+import app.managers.graph.common.Edge;
 import app.managers.view.GraphViewManager;
 import app.managers.graph.common.Vertex;
 import javafx.scene.Group;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class RemoveVertexAction implements Action {
     private Vertex vertex;
     private GraphManager graphManager;
     private GraphViewManager viewManager;
-    private Group vertexGroup; // To keep a reference for undo
+    private List<Edge> connectedEdges;
 
     public RemoveVertexAction(Vertex vertex, GraphManager graphManager, GraphViewManager viewManager) {
         this.vertex = vertex;
         this.graphManager = graphManager;
         this.viewManager = viewManager;
-        this.vertexGroup = viewManager.getVertexGraphicsMap().get(vertex);
+        this.connectedEdges = viewManager.getConnectedEdges(vertex); // Store connected edges
     }
 
     @Override
     public void perform() {
         graphManager.removeVertex(vertex);
-        // Update the view to remove the vertex and its edges
-        if (vertexGroup != null) {
-            viewManager.getVertexLayer().getChildren().remove(vertexGroup);
-        }
+        viewManager.undrawVertex(vertex);
     }
 
     @Override
     public void undo() {
         graphManager.addVertex(vertex);
-        // Update the view to restore the vertex and its edges
-        if (vertexGroup != null) {
-            viewManager.getVertexLayer().getChildren().add(vertexGroup);
-        }
+        viewManager.drawVertex(vertex);
+        connectedEdges.forEach(viewManager::drawEdge);
     }
 }
 

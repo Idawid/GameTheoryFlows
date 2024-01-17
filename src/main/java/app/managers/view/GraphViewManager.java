@@ -16,7 +16,9 @@ import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.scene.text.Text;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class GraphViewManager {
@@ -179,16 +181,46 @@ public class GraphViewManager {
         }
     }
 
+    public void resetEdgeHighlight() {
+        for (Group edgeGroup : edgeGraphicsMap.values()) {
+            edgeGroup.setEffect(null); // Remove any effects to reset the highlight
+        }
+    }
+
     public void resetVertexSelection() {
         for (Group group : vertexGraphicsMap.values()) {
             group.setEffect(null);
         }
     }
 
-    public void resetEdgeHighlight() {
-        for (Group edgeGroup : edgeGraphicsMap.values()) {
-            edgeGroup.setEffect(null); // Remove any effects to reset the highlight
+    public void undrawVertex(Vertex vertex) {
+        Group vertexGroup = vertexGraphicsMap.get(vertex);
+        if (vertexGroup != null) {
+            vertexLayer.getChildren().remove(vertexGroup); // Remove the vertex from the vertex layer
+            vertexGraphicsMap.remove(vertex); // Remove the vertex from the map
+
+            // Remove all edges connected to this vertex
+            List<Edge> connectedEdges = getConnectedEdges(vertex);
+            connectedEdges.forEach(this::undrawEdge);
         }
+    }
+
+    public void undrawEdge(Edge edge) {
+        Group edgeGroup = edgeGraphicsMap.get(edge);
+        if (edgeGroup != null) {
+            edgeLayer.getChildren().remove(edgeGroup); // Remove the edge from the edge layer
+            edgeGraphicsMap.remove(edge); // Remove the edge from the map
+        }
+    }
+
+    public List<Edge> getConnectedEdges(Vertex vertex) {
+        List<Edge> connectedEdges = new ArrayList<>();
+        for (Edge edge : edgeGraphicsMap.keySet()) {
+            if (edge.getFrom().equals(vertex) || edge.getTo().equals(vertex)) {
+                connectedEdges.add(edge);
+            }
+        }
+        return connectedEdges;
     }
 
     public SelectionResult selectElementAt(double x, double y, double selectionThreshold) {

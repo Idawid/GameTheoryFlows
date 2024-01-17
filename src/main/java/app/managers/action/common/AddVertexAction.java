@@ -28,6 +28,7 @@ public class AddVertexAction implements Action {
         Group vertexGroup = viewManager.getVertexGraphicsMap().get(vertex);
         if (vertexGroup != null) {
             viewManager.getGraphView().getChildren().remove(vertexGroup);
+            viewManager.getVertexGraphicsMap().remove(vertex);
         }
     }
 }

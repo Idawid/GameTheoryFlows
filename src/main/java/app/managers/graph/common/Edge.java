@@ -17,6 +17,19 @@ public class Edge {
         return to;
     }
 
-    // Optionally, override equals and hashCode
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        Edge otherEdge = (Edge) obj;
+
+        // Check if the edge is equivalent regardless of vertex order
+        return (from.equals(otherEdge.from) && to.equals(otherEdge.to)) ||
+                (from.equals(otherEdge.to) && to.equals(otherEdge.from));
+    }
 }
 

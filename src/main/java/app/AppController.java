@@ -36,6 +36,7 @@ public class AppController {
         graphView.setOnMouseClicked(this::handleMouseClicked);
         graphView.setOnMousePressed(this::handleMousePressed);
         graphView.setOnMouseReleased(this::handleMouseReleased);
+        graphView.setOnMouseDragged(this::handleMouseDragged);
 
         scene.addEventFilter(KeyEvent.KEY_PRESSED, this::handleKeyPressed);
     }
@@ -44,36 +45,80 @@ public class AppController {
         if (event.getButton() == MouseButton.SECONDARY && state.getSelectionType() == SelectionType.NONE) {
             Vertex newVertex = new Vertex(event.getX(), event.getY());
             actionManager.addVertex(newVertex);
-        } else if (event.getButton() == MouseButton.PRIMARY && event.isShiftDown()) {
-            double SELECTION_THRESHOLD = 10.0;
+        }
+        else if (event.getButton() == MouseButton.PRIMARY) {
+            // Edge / Vertex selection
+            if (event.isShiftDown()) {
+                double SELECTION_THRESHOLD = 30.0;
+                handleClickSelection(event.getX(), event.getY(), SELECTION_THRESHOLD);
+            } else if (event.getClickCount() >= 2) {
+                double SELECTION_THRESHOLD = 80.0; // bigger for double click
+                handleClickSelection(event.getX(), event.getY(), SELECTION_THRESHOLD);
+            }
+        }
+    }
+
+    private void handleClickSelection(double x, double y, double selectionThreshold) {
+        SelectionResult selection = viewManager.selectElementAt(x, y, selectionThreshold);
+
+        if (selection.getType() == SelectionType.VERTEX) {
+            Vertex selectedVertex = (Vertex) selection.getSelectedObject();
+            SelectVertexAction selectVertexAction = new SelectVertexAction(selectedVertex, graphManager, viewManager);
+            actionManager.performAction(selectVertexAction);
+        } else if (selection.getType() == SelectionType.EDGE) {
+            Edge selectedEdge = (Edge) selection.getSelectedObject();
+            SelectEdgeAction selectEdgeAction = new SelectEdgeAction(selectedEdge, graphManager, viewManager);
+            actionManager.performAction(selectEdgeAction);
+        }
+
+        state.setSelectionType(selection.getType());
+    }
+
+    private void handleMousePressed(MouseEvent event) {
+        if (event.getButton() == MouseButton.PRIMARY) {
+            double SELECTION_THRESHOLD = 15.0;
             SelectionResult selection = viewManager.selectElementAt(event.getX(), event.getY(), SELECTION_THRESHOLD);
 
             if (selection.getType() == SelectionType.VERTEX) {
                 Vertex selectedVertex = (Vertex) selection.getSelectedObject();
-                SelectVertexAction selectVertexAction = new SelectVertexAction(selectedVertex, graphManager, viewManager);
-                actionManager.performAction(selectVertexAction);
-            } else if (selection.getType() == SelectionType.EDGE) {
-                Edge selectedEdge = (Edge) selection.getSelectedObject();
-                SelectEdgeAction selectEdgeAction = new SelectEdgeAction(selectedEdge, graphManager, viewManager);
-                actionManager.performAction(selectEdgeAction);
+                state.setSelectedVertex(selectedVertex);
+                viewManager.startDrawingEdge(selectedVertex.getX(), selectedVertex.getY());
+                // You might want to visually indicate that this vertex is selected for edge creation
+                viewManager.highlightVertex(selectedVertex);
             }
 
-            state.setSelectionType(selection.getType());
-        }
-    }
-
-    private void handleMousePressed(MouseEvent event) {
-        if (event.getButton() == MouseButton.SECONDARY && state.getSelectionType() == SelectionType.VERTEX) {
-            // Start edge drawing process
-            // startEdgeDrawing(state.getSelectedVertex());
+            if (state.getSelectedVertex() != null) {
+                viewManager.updateDrawingEdge(event.getX(), event.getY());
+            }
         }
     }
 
     private void handleMouseReleased(MouseEvent event) {
-//        if (state.isDrawingEdge()) {
-//            // Finish edge drawing process
-//            // finishEdgeDrawing(event.getX(), event.getY());
-//        }
+        viewManager.stopDrawingEdge();
+
+        if (event.getButton() == MouseButton.PRIMARY && state.getSelectedVertex() != null) {
+            double SELECTION_THRESHOLD = 20.0;
+            SelectionResult selection = viewManager.selectElementAt(event.getX(), event.getY(), SELECTION_THRESHOLD);
+
+            if (selection.getType() == SelectionType.VERTEX) {
+                Vertex endingVertex = (Vertex) selection.getSelectedObject();
+                if (!endingVertex.equals(state.getSelectedVertex())) {
+                    Edge newEdge = new Edge(state.getSelectedVertex(), endingVertex);
+                    if (!graphManager.isEdgePresent(newEdge)) {
+                        actionManager.addEdge(newEdge);
+                        viewManager.drawEdge(newEdge);
+                    }
+                }
+            }
+
+            resetSelection();
+        }
+    }
+
+    private void handleMouseDragged(MouseEvent event) {
+        if (state.getSelectedVertex() != null) {
+            viewManager.updateDrawingEdge(event.getX(), event.getY());
+        }
     }
 
     private void handleKeyPressed(KeyEvent event) {
@@ -84,13 +129,17 @@ public class AppController {
                 actionManager.removeEdge(state.getSelectedEdge());
             }
         } else if (event.getCode() == KeyCode.ESCAPE) {
-            state = new AppState();
-            viewManager.resetVertexSelection();
-            viewManager.resetEdgeHighlight();
+            resetSelection();
         } else if (event.isControlDown() && event.getCode() == KeyCode.Z) {
             actionManager.undo();
         } else if (event.isControlDown() && event.getCode() == KeyCode.Y) {
             actionManager.redo();
         }
+    }
+
+    private void resetSelection() {
+        state = new AppState();
+        viewManager.resetVertexSelection();
+        viewManager.resetEdgeHighlight();
     }
 }

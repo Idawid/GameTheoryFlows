@@ -10,6 +10,24 @@ public class GraphManager {
     private List<Vertex> vertices = new ArrayList<>();
     private List<Edge> edges = new ArrayList<>();
 
+    public boolean isVertexPresent(Vertex vertex) {
+        for (Vertex v : vertices) {
+            if (v.equals(vertex)) {
+                return true; // Found a matching vertex
+            }
+        }
+        return false; // Vertex not found
+    }
+
+    public boolean isEdgePresent(Edge edge) {
+        for (Edge e : edges) {
+            if (e.equals(edge)) {
+                return true; // Found a matching edge
+            }
+        }
+        return false; // Edge not found
+    }
+
     public void addVertex(Vertex vertex) {
         // Add the vertex to the list of vertices
         vertices.add(vertex);

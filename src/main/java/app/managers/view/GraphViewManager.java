@@ -23,10 +23,12 @@ public class GraphViewManager {
     private Map<Edge, Line> edgeGraphicsMap;
     private final double gridSpacing = 20;
 
+    private Line tempEdgeLine;
+
     public GraphViewManager(Scene scene) {
-        this.graphView = new Pane();
         this.vertexGraphicsMap = new HashMap<>();
         this.edgeGraphicsMap = new HashMap<>();
+        this.graphView = new Pane();
         scene.setRoot(graphView);
 
         createGridBackground(scene);
@@ -68,7 +70,7 @@ public class GraphViewManager {
     public void drawVertex(Vertex vertex) {
         Group vertexGroup = vertexGraphicsMap.get(vertex);
         if (vertexGroup == null) {
-            Circle vertexCircle = new Circle(vertex.getX(), vertex.getY(), 10);
+            Circle vertexCircle = new Circle(vertex.getX(), vertex.getY(), 15);
             vertexCircle.setFill(Color.WHITE);
             vertexCircle.setStroke(Color.BLACK);
             vertexCircle.setStrokeWidth(2);
@@ -202,6 +204,26 @@ public class GraphViewManager {
     public boolean isNearVertex(Circle circle, double x, double y, double threshold) {
         double distance = Math.hypot(circle.getCenterX() - x, circle.getCenterY() - y);
         return distance <= threshold;
+    }
+
+    public void startDrawingEdge(double startX, double startY) {
+        tempEdgeLine = new Line(startX, startY, startX, startY);
+        graphView.getChildren().add(tempEdgeLine);
+
+    }
+
+    public void updateDrawingEdge(double endX, double endY) {
+        if (tempEdgeLine != null) {
+            tempEdgeLine.setEndX(endX);
+            tempEdgeLine.setEndY(endY);
+        }
+    }
+
+    public void stopDrawingEdge() {
+        if (tempEdgeLine != null) {
+            graphView.getChildren().remove(tempEdgeLine);
+            tempEdgeLine = null;
+        }
     }
 
     // Getters and setters for vertexGraphicsMap and edgeGraphicsMap

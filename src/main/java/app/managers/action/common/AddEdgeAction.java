@@ -29,6 +29,7 @@ public class AddEdgeAction implements Action {
         Line edgeLine = viewManager.getEdgeGraphicsMap().get(edge);
         if (edgeLine != null) {
             viewManager.getGraphView().getChildren().remove(edgeLine);
+            viewManager.getEdgeGraphicsMap().remove(edge);
         }
     }
 }

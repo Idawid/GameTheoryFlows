@@ -51,19 +51,20 @@ public class GraphManager {
         edges.remove(edge);
     }
 
-    public List<Vertex> getVertices() {
+    // GraphManager stores a graph representation for internal use. Do not access it from outside.
+    List<Vertex> getVertices() {
         return vertices;
     }
 
-    public void setVertices(List<Vertex> vertices) {
+    void setVertices(List<Vertex> vertices) {
         this.vertices = vertices;
     }
 
-    public List<Edge> getEdges() {
+    List<Edge> getEdges() {
         return edges;
     }
 
-    public void setEdges(List<Edge> edges) {
+    void setEdges(List<Edge> edges) {
         this.edges = edges;
     }
 }

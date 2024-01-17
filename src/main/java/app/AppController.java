@@ -123,8 +123,10 @@ public class AppController {
         if (event.getCode() == KeyCode.DELETE) {
             if (state.getSelectionType() == SelectionType.VERTEX) {
                 actionManager.removeVertex(state.getSelectedVertex());
+                resetSelection();
             } else if (state.getSelectionType() == SelectionType.EDGE) {
                 actionManager.removeEdge(state.getSelectedEdge());
+                resetSelection();
             }
         } else if (event.getCode() == KeyCode.ESCAPE) {
             resetSelection();

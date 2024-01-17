@@ -4,9 +4,7 @@ import app.managers.graph.GraphManager;
 import app.managers.graph.common.Edge;
 import app.managers.view.GraphViewManager;
 import app.managers.graph.common.Vertex;
-import javafx.scene.Group;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class RemoveVertexAction implements Action {

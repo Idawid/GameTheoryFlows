@@ -3,7 +3,6 @@ package app.managers.action.common;
 import app.managers.graph.GraphManager;
 import app.managers.view.GraphViewManager;
 import app.managers.graph.common.Vertex;
-import javafx.scene.Group;
 
 public class AddVertexAction implements Action {
     private Vertex vertex;

@@ -3,8 +3,6 @@ package app.managers.action.common;
 import app.managers.graph.GraphManager;
 import app.managers.graph.common.Edge;
 import app.managers.view.GraphViewManager;
-import javafx.scene.Group;
-import javafx.scene.shape.Line;
 
 public class AddEdgeAction implements Action {
     private Edge edge;

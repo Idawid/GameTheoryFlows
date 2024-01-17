@@ -14,6 +14,8 @@ import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 
 import java.util.ArrayList;
@@ -81,15 +83,24 @@ public class GraphViewManager {
     public void drawVertex(Vertex vertex) {
         Group vertexGroup = vertexGraphicsMap.get(vertex);
         if (vertexGroup == null) {
+            // Circle
             Circle vertexCircle = new Circle(vertex.getX(), vertex.getY(), 15);
             vertexCircle.setFill(Color.WHITE);
             vertexCircle.setStroke(Color.BLACK);
             vertexCircle.setStrokeWidth(2);
 
+            // Text inside
             Text vertexIdText = new Text(String.valueOf(vertex.getId()));
-            vertexIdText.setX(vertex.getX() - vertexIdText.getBoundsInLocal().getWidth() / 2);
-            vertexIdText.setY(vertex.getY() + vertexIdText.getBoundsInLocal().getHeight() / 4);
+            vertexIdText.setFont(Font.font("Gill Sans MT Bold", FontWeight.BOLD, 20));
+            vertexIdText.setOpacity(0.85);
 
+            double textWidth = vertexIdText.getLayoutBounds().getWidth(); // Get the width of the text
+            double textHeight = vertexIdText.getLayoutBounds().getHeight(); // Get the height of the text
+
+            vertexIdText.setX(vertex.getX() - textWidth / 2);
+            vertexIdText.setY(vertex.getY() + textHeight / 4);
+
+            //
             vertexGroup = new Group(vertexCircle, vertexIdText);
             vertexGraphicsMap.put(vertex, vertexGroup);
             vertexLayer.getChildren().add(vertexGroup);
@@ -128,6 +139,7 @@ public class GraphViewManager {
             middleLine.setStroke(Color.YELLOW);
             middleLine.setStrokeWidth(3.0); // Thicker line
 
+            edgeGroup.setOpacity(0.9);
             edgeGroup.getChildren().addAll(line1, middleLine, line2);
             edgeGraphicsMap.put(edge, edgeGroup);
             edgeLayer.getChildren().add(edgeGroup);

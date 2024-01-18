@@ -8,12 +8,12 @@ import java.util.List;
 import java.util.Random;
 
 public class ConnectionMatrix {
-    private List<List<Triplet<Double,Double,Double>>> matrix;
+    private List<List<Triplet<Double, Double, Double>>> matrix;
     private final int numberOfVertices;
     private List<Path> paths;
     private List<List<Double>> distribution;
 
-    public List<List<Triplet<Double,Double,Double>>> getMatrix() {
+    public List<List<Triplet<Double, Double, Double>>> getMatrix() {
         return matrix;
     }
 
@@ -42,10 +42,10 @@ public class ConnectionMatrix {
         this.matrix = new ArrayList<>();
         this.distribution = new ArrayList<>();
         for (int i = 0; i < this.numberOfVertices; i++) {
-            List<Triplet<Double,Double,Double>> rowPaths = new ArrayList<>();
+            List<Triplet<Double, Double, Double>> rowPaths = new ArrayList<>();
             List<Double> rowDistribution = new ArrayList<>();
             for (int j = 0; j < this.numberOfVertices; j++) {
-                Triplet<Double, Double, Double> cell = new Triplet<Double,Double,Double>(0.0, 0.0, 0.0);
+                Triplet<Double, Double, Double> cell = new Triplet<Double, Double, Double>(0.0, 0.0, 0.0);
                 rowPaths.add(cell);
                 rowDistribution.add(0.0);
             }
@@ -54,7 +54,7 @@ public class ConnectionMatrix {
         }
     }
 
-    private Triplet<Double,Double,Double> getConnection(int start, int destination) {
+    private Triplet<Double, Double, Double> getConnection(int start, int destination) {
         return this.matrix.get(start).get(destination);
     }
 
@@ -63,7 +63,7 @@ public class ConnectionMatrix {
     }
 
     public void addParameters(double a, double b, double c, int start, int destination) {
-        this.matrix.get(start).add(destination, new Triplet<Double,Double,Double>(a, b, c));
+        this.matrix.get(start).add(destination, new Triplet<Double, Double, Double>(a, b, c));
     }
 
     private List<Integer> nextStations(int start) {
@@ -72,7 +72,7 @@ public class ConnectionMatrix {
             indices.add(0);
             return indices;
         }
-        List<Triplet<Double,Double,Double>> startList = this.matrix.get(start);
+        List<Triplet<Double, Double, Double>> startList = this.matrix.get(start);
         for (int i = 0; i < this.numberOfVertices; i++) {
             Triplet<Double, Double, Double> test = startList.get(i);
             if (test.getValue0() != 0.0 || test.getValue1() != 0.0 || test.getValue2() != 0.0) {
@@ -90,6 +90,52 @@ public class ConnectionMatrix {
         visited.add(0);
         addPath(initialPath, 0, finish, visited);
     }
+    public double anarchyCost(double payload, double step){
+        double bestSolution = bestGameValue(payload, step).getValue1();
+        List<Double> nashEquils = getAllNashEquil(payload, step).getValue1();
+        if (nashEquils.size() ==1){
+            return nashEquils.get(0)/bestSolution;
+        }
+        double worstNashEquil = nashEquils.get(0);
+        for(Double d : nashEquils){
+            worstNashEquil = Math.max(worstNashEquil,d);
+        }
+        return worstNashEquil/bestSolution;
+    }
+    public double stabilityCost(double payload, double step){
+        double bestSolution = bestGameValue(payload, step).getValue1();
+        List<Double> nashEquils = getAllNashEquil(payload, step).getValue1();
+        if (nashEquils.size() ==1){
+            return nashEquils.get(0)/bestSolution;
+        }
+        double bestNashEquil = nashEquils.get(0);
+        for(Double d : nashEquils){
+            bestNashEquil = Math.min(bestNashEquil,d);
+        }
+        return bestNashEquil/bestSolution;
+    }
+    public void fixedPayload(double payload, double step) {
+        resetPayload();
+        double added = 0;
+        if (paths.size() <= 0) {
+            return;
+        }
+        if (paths.size() == 1) {
+            addPayloadPath(payload, paths.get(0));
+        }
+        while (added < payload) {
+            int index = 0;
+            double value = getPathValue(paths.get(0));
+            for (int i = 1; i < paths.size(); i++) {
+                double valueNew = getPathValue(paths.get(i));
+                if (valueNew < value) {
+                    index = i;
+                }
+            }
+            addPayloadPath(step, paths.get(index));
+            added += step;
+        }
+    }
 
     private void addPath(Path path, int station, int finish, List<Integer> visited) {
         if (finish == station) {
@@ -98,7 +144,7 @@ public class ConnectionMatrix {
         } else {
             List<Integer> neighbors = nextStations(station);
             for (Integer i : neighbors) {
-                if(!visited.contains(i)) {
+                if (!visited.contains(i)) {
                     Path newPath = new Path(path.getRoute(), station);
                     List<Integer> visitedNew = new ArrayList<>(visited);
                     newPath.addStation(station);

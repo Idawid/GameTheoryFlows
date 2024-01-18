@@ -97,6 +97,10 @@ public class GraphActionManager {
         SelectEdgeAction selectEdgeAction = new SelectEdgeAction(edge, graphManager, viewManager);
         performAction(selectEdgeAction);
     }
+
+    public void addEdge(Vertex vertex, Vertex vertex1) {
+        addEdge(new Edge(vertex,vertex1));
+    }
 }
 
 

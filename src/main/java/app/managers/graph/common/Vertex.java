@@ -1,6 +1,10 @@
 package app.managers.graph.common;
 
 public class Vertex {
+    public static void resetIdCounter() {
+        Vertex.idCounter = 0;
+    }
+
     private static int idCounter = 0;
     private int id;
     private double x;

@@ -63,6 +63,11 @@
       <artifactId>exp4j</artifactId>
       <version>0.4.8</version>
     </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-math3</artifactId>
+      <version>3.6.1</version>
+    </dependency>
   </dependencies>
 
   <build>

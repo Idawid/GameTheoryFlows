@@ -13,8 +13,16 @@ public class Edge {
         return from;
     }
 
+    public void setFrom(Vertex from) {
+        this.from = from;
+    }
+
     public Vertex getTo() {
         return to;
+    }
+
+    public void setTo(Vertex to) {
+        this.to = to;
     }
 
     @Override

@@ -50,6 +50,10 @@ public class Graph {
         return edges;
     }
 
+    public Vertex getVertex(int vertexId) {
+        return vertices.get(vertexId);
+    }
+
     public List<Edge> getConnectedEdges(Vertex vertex) {
         List<Edge> connectedEdges = new ArrayList<>();
         for (Edge edge : edges) {

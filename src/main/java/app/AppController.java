@@ -6,6 +6,8 @@ import app.managers.action.common.SelectVertexAction;
 import app.managers.graph.GraphManager;
 import app.managers.graph.common.Edge;
 import app.managers.graph.common.Vertex;
+import app.managers.graph.flow.FlowEdge;
+import app.managers.graph.flow.FlowVertex;
 import app.managers.view.GraphViewManager;
 import app.managers.action.GraphActionManager;
 import app.managers.view.common.SelectionResult;
@@ -101,7 +103,8 @@ public class AppController {
     }
     private void handleMouseClicked(MouseEvent event) {
         if (event.getButton() == MouseButton.SECONDARY && state.getSelectionType() == SelectionType.NONE) {
-            Vertex newVertex = new Vertex(event.getX(), event.getY());
+            FlowVertex newVertex = new FlowVertex(event.getX(), event.getY());
+            newVertex.addObserver(viewManager);
             actionManager.addVertex(newVertex);
         }
         else if (event.getButton() == MouseButton.PRIMARY) {
@@ -161,7 +164,8 @@ public class AppController {
             if (selection.getType() == SelectionType.VERTEX) {
                 Vertex endingVertex = (Vertex) selection.getSelectedObject();
                 if (!endingVertex.equals(state.getSelectedVertex())) {
-                    Edge newEdge = new Edge(state.getSelectedVertex(), endingVertex);
+                    FlowEdge newEdge = new FlowEdge(state.getSelectedVertex(), endingVertex, "1");
+                    newEdge.addObserver(viewManager);
                     if (!graphManager.isEdgePresent(newEdge)) {
                         actionManager.addEdge(newEdge);
                     }

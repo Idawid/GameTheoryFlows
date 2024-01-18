@@ -1,7 +1,10 @@
 package app.managers.view;
 
+import app.Observer;
 import app.managers.graph.common.Edge;
 import app.managers.graph.common.Vertex;
+import app.managers.graph.flow.FlowEdge;
+import app.managers.graph.flow.FlowVertex;
 import app.managers.view.common.SelectionResult;
 import app.managers.view.common.SelectionType;
 import javafx.scene.Group;
@@ -9,8 +12,10 @@ import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.control.Label;
+import javafx.scene.control.ChoiceDialog;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
@@ -18,13 +23,13 @@ import javafx.scene.shape.Line;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.scene.transform.Rotate;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.awt.*;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 
-public class GraphViewManager {
+public class GraphViewManager implements Observer {
     private Pane graphView;
     private Pane edgeLayer;
     private Pane vertexLayer;
@@ -41,6 +46,11 @@ public class GraphViewManager {
         this.graphView = new Pane();
         this.edgeLayer = new Pane();
         this.vertexLayer = new Pane();
+
+        // Allow mouse events to pass through the panes' transparent areas
+        graphView.setPickOnBounds(false);
+        edgeLayer.setPickOnBounds(false);
+        vertexLayer.setPickOnBounds(false);
 
         graphView.getChildren().addAll(edgeLayer, vertexLayer);
         scene.setRoot(graphView);
@@ -84,6 +94,8 @@ public class GraphViewManager {
     public void drawVertex(Vertex vertex) {
         Group vertexGroup = vertexGraphicsMap.get(vertex);
         if (vertexGroup == null) {
+            vertexGroup = new Group();
+
             // Circle
             Circle vertexCircle = new Circle(vertex.getX(), vertex.getY(), 15);
             vertexCircle.setFill(Color.WHITE);
@@ -101,13 +113,82 @@ public class GraphViewManager {
             vertexIdText.setX(vertex.getX() - textWidth / 2);
             vertexIdText.setY(vertex.getY() + textHeight / 4);
 
+            // Add event handlers
+            if (vertex instanceof FlowVertex) {
+                FlowVertex flowVertex = (FlowVertex) vertex;
+                vertexIdText.setText(flowVertex.toString());
+
+                if (flowVertex.isSource()) {
+                    vertexCircle.setFill(Color.LIGHTGRAY);
+                }
+
+                vertexGroup.setOnMouseClicked(event -> {
+                    if (event.getButton() == MouseButton.PRIMARY && event.getClickCount() == 2) {
+                        // Handle double-click event
+                        handleVertexDoubleClick(flowVertex);
+                    }
+                    if (event.getButton() == MouseButton.SECONDARY) {
+                        handleVertexDoubleClick(flowVertex);
+                        event.consume();
+                    }
+                });
+            }
+
             //
-            vertexGroup = new Group(vertexCircle, vertexIdText);
+            vertexGroup.getChildren().addAll(vertexCircle, vertexIdText);
             vertexGraphicsMap.put(vertex, vertexGroup);
             vertexLayer.getChildren().add(vertexGroup);
         } else {
             updateVertexPosition(vertex, vertexGroup);
         }
+    }
+
+    private void handleVertexDoubleClick(FlowVertex flowVertex) {
+        // Dialog or series of dialogs to set isSource, isSink, and flowCapacity
+        ChoiceDialog<String> choiceDialog = new ChoiceDialog<>("None", "Source", "Sink", "None");
+        choiceDialog.setTitle("Vertex Configuration");
+        choiceDialog.setHeaderText("Set Vertex Type");
+        choiceDialog.setContentText("Choose the vertex type:");
+
+        Optional<String> result = choiceDialog.showAndWait();
+        result.ifPresent(choice -> {
+            switch (choice) {
+                case "Source":
+                    flowVertex.setSource(true);
+                    flowVertex.setSink(false);
+                    askForFlowCapacity(flowVertex);
+                    break;
+                case "Sink":
+                    flowVertex.setSink(true);
+                    flowVertex.setSource(false);
+                    break;
+                case "None":
+                    flowVertex.setSource(false);
+                    flowVertex.setSink(false);
+                    break;
+            }
+        });
+    }
+
+    private void askForFlowCapacity(FlowVertex flowVertex) {
+        TextInputDialog capacityDialog = new TextInputDialog("0");
+        capacityDialog.setTitle("Flow Capacity");
+        capacityDialog.setHeaderText("Set Flow Capacity");
+        capacityDialog.setContentText("Enter positive flow capacity:");
+
+        Optional<String> capacityResult = capacityDialog.showAndWait();
+        capacityResult.ifPresent(capacity -> {
+            try {
+                double flowCapacity = Double.parseDouble(capacity);
+                if (flowCapacity > 0) {
+                    flowVertex.setFlowCapacity(flowCapacity);
+                } else {
+                    // Handle invalid input (e.g., show error message)
+                }
+            } catch (NumberFormatException e) {
+                // Handle invalid input (e.g., show error message)
+            }
+        });
     }
 
     private void updateVertexPosition(Vertex vertex, Group vertexGroup) {
@@ -118,29 +199,35 @@ public class GraphViewManager {
         vertexIdText.setX(vertex.getX() - vertexIdText.getBoundsInLocal().getWidth() / 2);
         vertexIdText.setY(vertex.getY() + vertexIdText.getBoundsInLocal().getHeight() / 4);
     }
+
     public void drawEdge(Edge edge) {
         Group edgeGroup = edgeGraphicsMap.get(edge);
         if (edgeGroup == null) {
             edgeGroup = new Group();
 
-            // Create the border lines
-            Line line1 = new Line(edge.getFrom().getX(), edge.getFrom().getY(), edge.getTo().getX(), edge.getTo().getY());
-            Line line2 = new Line(edge.getFrom().getX(), edge.getFrom().getY(), edge.getTo().getX(), edge.getTo().getY());
-            Line middleLine = new Line(edge.getFrom().getX(), edge.getFrom().getY(), edge.getTo().getX(), edge.getTo().getY());
+            // 1. Create Line Elements
+            Group lineGroup = createLineElements(edge);
+            edgeGroup.getChildren().add(lineGroup);
 
-            // Set properties for the border lines
-            double offset = 2.0; // Offset for the border lines
-            adjustLinePosition(line1, edge, offset);
-            adjustLinePosition(line2, edge, -offset);
-            line1.setStrokeWidth(1);
-            line2.setStrokeWidth(1);
+            // 2. Create and Position Text (if FlowEdge)
+            if (edge instanceof FlowEdge) {
+                FlowEdge flowEdge = (FlowEdge) edge;
+                Node costFunctionText = createCostFunctionText(flowEdge, lineGroup);
+                Text flowText = createFlowText(flowEdge, lineGroup);
 
-            // Set properties for the middle line
-            middleLine.setStroke(Color.YELLOW);
-            middleLine.setStrokeWidth(3.0); // Thicker line
+                Line flowFillLine = (Line) lineGroup.lookup("#FlowFill");
+                Color fillColor = calculateColorBasedOnFlow(flowEdge.getCurrentFlow());
+                flowFillLine.setStroke(fillColor);
+
+                // 3. Add Elements to Group
+                edgeGroup.getChildren().addAll(costFunctionText, flowText);
+            }
+
+            // 4. Adjust the edgeGroup
+            adjustEdgeGroup(edgeGroup, edge);
 
             edgeGroup.setOpacity(0.9);
-            edgeGroup.getChildren().addAll(line1, middleLine, line2);
+
             edgeGraphicsMap.put(edge, edgeGroup);
             edgeLayer.getChildren().add(edgeGroup);
         } else {
@@ -149,12 +236,130 @@ public class GraphViewManager {
         }
     }
 
-    private void adjustLinePosition(Line line, Edge edge, double offset) {
-        double angle = Math.atan2(edge.getTo().getY() - edge.getFrom().getY(), edge.getTo().getX() - edge.getFrom().getX());
-        line.setStartX(line.getStartX() + offset * Math.cos(angle + Math.PI / 2));
-        line.setStartY(line.getStartY() + offset * Math.sin(angle + Math.PI / 2));
-        line.setEndX(line.getEndX() + offset * Math.cos(angle + Math.PI / 2));
-        line.setEndY(line.getEndY() + offset * Math.sin(angle + Math.PI / 2));
+    private Group createLineElements(Edge edge) {
+        Group lineGroup = new Group();
+        lineGroup.setId("LineGroup");
+
+        double length = Math.sqrt(Math.pow(edge.getTo().getX() - edge.getFrom().getX(), 2) + Math.pow(edge.getTo().getY() - edge.getFrom().getY(), 2));
+
+        Line line1 = new Line(0, 0, length, 0);
+        Line line2 = new Line(0, 0, length, 0);
+        Line middleLine = new Line(0, 0, length, 0);
+        middleLine.setId("FlowFill");
+
+        double fillStroke = 4.0;
+        double borderStroke = 1.5;
+        double offset = fillStroke - (borderStroke / 2);
+        adjustLinePosition(line1, offset);
+        adjustLinePosition(line2, -offset);
+        line1.setStrokeWidth(borderStroke);
+        line2.setStrokeWidth(borderStroke);
+
+        Color fillColor = calculateColorBasedOnFlow(0);
+        middleLine.setStroke(fillColor);
+        middleLine.setStrokeWidth(fillStroke);
+
+        lineGroup.getChildren().addAll(line1, line2, middleLine);
+        return lineGroup;
+    }
+
+    private Color calculateColorBasedOnFlow(double currentFlow) {
+        // Define the range of flow values you want to map to the color gradient
+        double minFlow = 0.0;
+        double maxFlow = calculateMaxFlow(); // Adjust this value as needed
+
+        // Define the color at the minimum and maximum flow values
+        Color minColor = Color.LIGHTYELLOW;
+        Color maxColor = Color.RED;
+
+        // Calculate the normalized value of currentFlow within the range [0, 1]
+        double normalizedFlow = (currentFlow - minFlow) / (maxFlow - minFlow);
+
+        // Interpolate between minColor and maxColor based on the normalizedFlow value
+        double interpolatedRed = minColor.getRed() + normalizedFlow * (maxColor.getRed() - minColor.getRed());
+        double interpolatedGreen = minColor.getGreen() + normalizedFlow * (maxColor.getGreen() - minColor.getGreen());
+        double interpolatedBlue = minColor.getBlue() + normalizedFlow * (maxColor.getBlue() - minColor.getBlue());
+
+        // Ensure the RGB values are within the valid range [0, 1]
+        interpolatedRed = clamp(interpolatedRed, 0.0, 1.0);
+        interpolatedGreen = clamp(interpolatedGreen, 0.0, 1.0);
+        interpolatedBlue = clamp(interpolatedBlue, 0.0, 1.0);
+
+        // Create and return the interpolated color
+        return Color.color(interpolatedRed, interpolatedGreen, interpolatedBlue);
+    }
+
+    private double calculateMaxFlow() {
+        double maxFlow = 0.0;
+
+        for (Vertex vertex : vertexGraphicsMap.keySet()) {
+            if (vertex instanceof FlowVertex) {
+                FlowVertex flowVertex = (FlowVertex) vertex;
+                maxFlow += flowVertex.getFlowCapacity();
+            }
+        }
+
+        return maxFlow;
+    }
+
+    private double clamp(double value, double min, double max) {
+        return Math.min(Math.max(value, min), max);
+    }
+
+    private Node createCostFunctionText(FlowEdge flowEdge, Node node) {
+        Text costFunctionText = new Text("c(x) = " + flowEdge.getCostFunction());
+        costFunctionText.setId("CostFunctionText");
+
+        costFunctionText.setFont(Font.font("Gill Sans MT Bold", FontWeight.BOLD, 14));
+        costFunctionText.setFill(Color.BLACK);
+        costFunctionText.setOpacity(0.8);
+
+        double offset = node.getLayoutBounds().getHeight() + costFunctionText.getLayoutBounds().getHeight() + 5.0;
+        costFunctionText.setX(node.getLayoutBounds().getWidth() / 2 - costFunctionText.getLayoutBounds().getWidth() / 2);
+        costFunctionText.setY(node.getLayoutBounds().getHeight() / 2 - costFunctionText.getLayoutBounds().getHeight() + offset);
+
+        costFunctionText.setOnMouseClicked(event -> {
+            if (event.getButton() == MouseButton.PRIMARY && event.getClickCount() == 2) {
+                // Handle double-click event
+                handleCostFunctionTextDoubleClick(flowEdge);
+            }
+        });
+
+        return costFunctionText;
+    }
+
+    private void handleCostFunctionTextDoubleClick(FlowEdge flowEdge) {
+        // Open a dialog or text input to update the cost function
+        TextInputDialog dialog = new TextInputDialog(flowEdge.getCostFunction());
+        dialog.setTitle("Edit Cost Function");
+        dialog.setHeaderText("Update the Cost Function");
+        dialog.setContentText("Enter new cost function:");
+
+        Optional<String> result = dialog.showAndWait();
+        result.ifPresent(newCostFunction -> {
+            flowEdge.setCostFunction(newCostFunction);
+        });
+    }
+
+    private Text createFlowText(FlowEdge flowEdge, Node node) {
+        Text flowText = new Text(String.valueOf(flowEdge.getCurrentFlow()));
+        flowText.setId("FlowText");
+
+        flowText.setFont(Font.font("Gill Sans MT Bold", FontWeight.BOLD, 10));
+        flowText.setFill(Color.RED);
+
+        // stinks
+        double offset = -(node.getLayoutBounds().getHeight() - flowText.getLayoutBounds().getHeight() + 5.0);
+        flowText.setX(node.getLayoutBounds().getWidth() / 2 - flowText.getLayoutBounds().getWidth() / 2);
+        flowText.setY(node.getLayoutBounds().getHeight() / 2 - flowText.getLayoutBounds().getHeight() + offset);
+
+        return flowText;
+    }
+
+    private void adjustLinePosition(Line line, double offset) {
+        // Simplified af
+        line.setStartY(line.getStartY() + offset);
+        line.setEndY(line.getEndY() + offset);
     }
 
     private void updateEdgePosition(Edge edge, Group edgeGroup) {
@@ -162,6 +367,39 @@ public class GraphViewManager {
 //        edgeGroup.setStartY(edge.getFrom().getY());
 //        edgeGroup.setEndX(edge.getTo().getX());
 //        edgeGroup.setEndY(edge.getTo().getY());
+    }
+
+    private void adjustEdgeGroup(Group edgeGroup, Edge edge) {
+        // Calculate the angle of rotation
+        double angle = calculateEdgeAngle(edge);
+
+        // Determine start position based on the angle
+        double startX, startY;
+        if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
+            // Start from edge's end vertex
+            startX = edge.getTo().getX();
+            startY = edge.getTo().getY();
+            angle -= Math.PI;
+        } else {
+            // Start from edge's start vertex
+            startX = edge.getFrom().getX();
+            startY = edge.getFrom().getY();
+        }
+
+        // Set the rotation and position of the group
+        edgeGroup.setLayoutX(startX);
+        edgeGroup.setLayoutY(startY);
+
+        Rotate rotate = new Rotate(Math.toDegrees(angle), 0, 0);
+        edgeGroup.getTransforms().add(rotate);
+    }
+
+    private double calculateEdgeAngle(Edge edge) {
+        double dx = edge.getTo().getX() - edge.getFrom().getX();
+        double dy = edge.getTo().getY() - edge.getFrom().getY();
+        double angle = Math.atan2(dy, dx);
+
+        return angle;
     }
 
     public void highlightVertex(Vertex vertex) {
@@ -214,6 +452,14 @@ public class GraphViewManager {
             // Remove all edges connected to this vertex
             List<Edge> connectedEdges = getConnectedEdges(vertex);
             connectedEdges.forEach(this::undrawEdge);
+        }
+    }
+
+    public void undrawVertexOnly(Vertex vertex) {
+        Group vertexGroup = vertexGraphicsMap.get(vertex);
+        if (vertexGroup != null) {
+            vertexLayer.getChildren().remove(vertexGroup); // Remove the vertex from the vertex layer
+            vertexGraphicsMap.remove(vertex); // Remove the vertex from the map
         }
     }
 
@@ -328,6 +574,25 @@ public class GraphViewManager {
 
     public Map<Edge, Group> getEdgeGraphicsMap() {
         return edgeGraphicsMap;
+    }
+
+    @Override
+    public void update(Object subject) {
+        if (subject instanceof FlowEdge) {
+            undrawEdge((FlowEdge)subject);
+            drawEdge((FlowEdge)subject);
+        }
+        else if (subject instanceof FlowVertex) {
+            undrawVertexOnly((FlowVertex)subject);
+            drawVertex((FlowVertex)subject);
+
+            // We've changed the Source vertex
+            // Run the simulation or
+            if (((FlowVertex) subject).isSource()) {
+
+            }
+        }
+        // Handle other types of subjects...
     }
 }
 

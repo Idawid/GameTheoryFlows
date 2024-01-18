@@ -40,7 +40,6 @@ public class FlowGraphTest {
 
     @Test
     public void testFindAllPathsComplex() {
-        Vertex.resetIdCounter();
         FlowGraph graph = new FlowGraph();
 
         // Create 10 vertices, set some as sources and sinks
@@ -70,7 +69,6 @@ public class FlowGraphTest {
 
     @Test
     public void TestFindOptimalFlow() {
-        Vertex.resetIdCounter();
         FlowGraph graph = new FlowGraph();
 
         // Create 4 vertices, set some as sources and sinks

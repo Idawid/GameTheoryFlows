@@ -1,15 +1,21 @@
 package app.managers.graph.flow;
 
+import app.Observable;
 import app.managers.graph.common.Edge;
 import app.managers.graph.common.Vertex;
+import app.Observer;
 import net.objecthunter.exp4j.Expression;
 import net.objecthunter.exp4j.ExpressionBuilder;
 import net.objecthunter.exp4j.ValidationResult;
 
-public class FlowEdge extends Edge {
+import java.util.ArrayList;
+import java.util.List;
+
+public class FlowEdge extends Edge implements Observable {
     private double currentFlow;
     private String costFunction; // Mathematical expression as a string
     private transient Expression compiledCostFunction;
+    private List<Observer> observers = new ArrayList<>();
 
     public FlowEdge(Vertex from, Vertex to, String costFunction) {
         super(from, to);
@@ -26,6 +32,7 @@ public class FlowEdge extends Edge {
     public void setCurrentFlow(double flow) {
         this.currentFlow = flow;
         this.compiledCostFunction.setVariable("x", flow);
+        notifyObservers();
     }
 
     public double getCurrentCost() {
@@ -51,5 +58,23 @@ public class FlowEdge extends Edge {
 
         this.costFunction = costFunction;
         this.compileCostFunction();
+        notifyObservers();
+    }
+
+    @Override
+    public void addObserver(Observer observer) {
+        observers.add(observer);
+    }
+
+    @Override
+    public void removeObserver(Observer observer) {
+        observers.remove(observer);
+    }
+
+    @Override
+    public void notifyObservers() {
+        for (Observer observer : observers) {
+            observer.update(this);
+        }
     }
 }

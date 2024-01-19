@@ -1,8 +1,6 @@
 package app;
 
 import app.GameObjects.Path;
-import app.managers.action.common.SelectEdgeAction;
-import app.managers.action.common.SelectVertexAction;
 import app.managers.graph.GraphManager;
 import app.managers.graph.common.Edge;
 import app.managers.graph.common.Vertex;
@@ -18,8 +16,6 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
-import org.javatuples.Pair;
-import org.javatuples.Triplet;
 
 import java.util.HashMap;
 import java.util.List;
@@ -30,14 +26,12 @@ public class AppController {
     private GraphManager graphManager;
     private GraphViewManager viewManager;
     private GraphActionManager actionManager;
-    private Scene scene;
     private Map<Integer,Vertex> printedVertices;
     public AppController(Scene scene) {
         this.state = new AppState();
         this.graphManager = new GraphManager();
         this.viewManager = new GraphViewManager(scene);
         this.actionManager = new GraphActionManager(graphManager, viewManager, state);
-        this.scene = scene;
         this.printedVertices = new HashMap<>();
         initializeEventHandlers(scene);
     }
@@ -52,9 +46,9 @@ public class AppController {
 
         scene.addEventFilter(KeyEvent.KEY_PRESSED, this::handleKeyPressed);
     }
-    public void drawGraph(List<Path> paths, int verticesNum){
-        double width = scene.getWidth();
-        double height =scene.getHeight();
+    public void drawGraph(List<Path> paths, int verticesNum) {
+        double width = viewManager.getGraphView().getWidth();
+        double height = viewManager.getGraphView().getHeight();
         int pathNum = paths.size();
         int maxPathLength = 0;
         for(Path path : paths){
@@ -81,7 +75,8 @@ public class AppController {
         //add last edges
         for(Path path : paths){
             int lastIndex = path.getRoute().get(path.getRoute().size()-2);
-            actionManager.addEdge(printedVertices.get(lastIndex), printedVertices.get(verticesNum-1));
+            FlowEdge newEdge = new FlowEdge(printedVertices.get(lastIndex), printedVertices.get(verticesNum-1), "1");
+            actionManager.addEdge(newEdge);
         }
     }
 
@@ -93,14 +88,17 @@ public class AppController {
         }
         return false;
     }
-    private void addVertexFromPath(int id, Vertex vertex){
+
+    private void addVertexFromPath(int id, Vertex vertex) {
         actionManager.addVertex(vertex);
         printedVertices.put(id,vertex);
     }
+
     private Vertex getVertexInGraph(double cellWidth, double cellHeight, int x, int y){
         double offset = x % 2 == 0 ? 0.5 : 0.75;
-        return new Vertex(cellWidth*(x+offset), cellHeight*(y+offset));
+        return new FlowVertex(cellWidth*(x+offset), cellHeight*(y+offset));
     }
+
     private void handleMouseClicked(MouseEvent event) {
         if (event.getButton() == MouseButton.SECONDARY && state.getSelectionType() == SelectionType.NONE) {
             FlowVertex newVertex = new FlowVertex(event.getX(), event.getY());

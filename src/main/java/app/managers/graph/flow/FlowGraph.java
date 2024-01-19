@@ -43,8 +43,11 @@ public class FlowGraph extends Graph {
         visited.add(current);
         for (Edge edge : getConnectedEdges(current)) {
             if (edge instanceof FlowEdge) {
-                currentPath.addEdge((FlowEdge) edge);
-                findAllPathsDFS(edge.getTo(), target, allPaths, visited, currentPath);
+                FlowEdge flowEdge = (FlowEdge) edge;
+                Vertex nextVertex = flowEdge.getFrom().equals(current) ? flowEdge.getTo() : flowEdge.getFrom();
+
+                currentPath.addEdge(flowEdge);
+                findAllPathsDFS(nextVertex, target, allPaths, visited, currentPath);
                 currentPath.removeLastEdge(); // Backtrack
             }
         }

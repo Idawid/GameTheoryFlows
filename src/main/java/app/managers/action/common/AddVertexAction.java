@@ -1,6 +1,7 @@
 package app.managers.action.common;
 
 import app.managers.graph.GraphManager;
+import app.managers.graph.flow.FlowVertex;
 import app.managers.view.GraphViewManager;
 import app.managers.graph.common.Vertex;
 
@@ -13,6 +14,9 @@ public class AddVertexAction implements Action {
         this.vertex = vertex;
         this.graphManager = graphManager;
         this.viewManager = viewManager;
+        if (vertex instanceof FlowVertex) {
+            ((FlowVertex) vertex).addObserver(viewManager);
+        }
     }
 
     @Override

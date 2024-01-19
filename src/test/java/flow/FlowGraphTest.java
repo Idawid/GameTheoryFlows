@@ -1,15 +1,14 @@
 package flow;
 
-import app.managers.graph.common.Vertex;
 import app.managers.graph.flow.FlowEdge;
 import app.managers.graph.flow.FlowGraph;
 import app.managers.graph.flow.FlowPath;
 import app.managers.graph.flow.FlowVertex;
 
 import org.apache.commons.math3.optim.*;
-import org.apache.commons.math3.optim.linear.NonNegativeConstraint;
 import org.apache.commons.math3.optim.nonlinear.scalar.noderiv.BOBYQAOptimizer;
-import org.apache.commons.math3.optim.nonlinear.scalar.noderiv.PowellOptimizer;
+import org.apache.commons.math3.optim.nonlinear.scalar.noderiv.NelderMeadSimplex;
+import org.apache.commons.math3.optim.nonlinear.scalar.noderiv.SimplexOptimizer;
 import org.junit.Test;
 import org.apache.commons.math3.analysis.MultivariateFunction;
 import org.apache.commons.math3.optim.nonlinear.scalar.GoalType;
@@ -17,6 +16,7 @@ import org.apache.commons.math3.optim.nonlinear.scalar.ObjectiveFunction;
 
 
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -46,7 +46,10 @@ public class FlowGraphTest {
         for (int i = 0; i < 10; i++) {
             FlowVertex vertex = new FlowVertex(i, i); // x, y can be arbitrary
             graph.addVertex(vertex);
-            if (i == 0 || i == 1) vertex.setSource(true); // First two as sources
+            if (i == 0 || i == 1) {
+                vertex.setSource(true); // First two as sources
+                vertex.setFlowCapacity(10.0);
+            }
             if (i == 8 || i == 9) vertex.setSink(true);   // Last two as sinks
         }
 
@@ -63,12 +66,274 @@ public class FlowGraphTest {
         List<FlowPath> paths = graph.findAllPaths();
 
         // Expected number of paths will depend on how you set up the graph
-        int expectedNumberOfPaths = 4; // Define based on your graph structure
+        int expectedNumberOfPaths = 8; // Define based on your graph structure
         assertEquals(expectedNumberOfPaths, paths.size());
     }
 
     @Test
     public void TestFindOptimalFlow() {
+        FlowGraph graph = createExercise2Graph();
+
+        List<FlowPath> paths = graph.findAllPaths();
+
+        double T = 1.0;
+
+        MultivariateFunction function = point -> {
+            double totalCost = 0.0;
+            double penalty = 1000000;
+
+            double[] flows = calculateFlowsFromPoint(T, point);
+
+            // Apply penalty if necessary
+            if (Arrays.stream(flows).anyMatch(flow -> flow < -10e-4) || Arrays.stream(flows).sum() > T) {
+                totalCost += penalty;
+            }
+
+            // Prepare flows in the graph
+            fillGraphFlows(paths, flows);
+
+            // Cost calculation
+            for (int i = 0; i < flows.length; i++) {
+                for (FlowEdge edge : paths.get(i).getEdges()) {
+                    totalCost += flows[i] * edge.getCurrentCost();
+                }
+            }
+
+            // Reset flows in the graph
+            resetGraphFlows(paths);
+
+            return totalCost;
+        };
+
+        double[] lowerBound = new double[paths.size() - 1]; // Lower bounds (all zeros)
+        double[] upperBound = new double[paths.size() - 1]; // Upper bounds (optional, can be set to a large number or left unbounded)
+        Arrays.fill(lowerBound, 0.0);
+        Arrays.fill(upperBound, Double.POSITIVE_INFINITY); // Or any large value that makes sense in your context
+
+        BOBYQAOptimizer optimizer = new BOBYQAOptimizer(2 * (paths.size() - 1) + 1); // Number of interpolation points
+        PointValuePair optimum = optimizer.optimize(
+                new MaxIter(1000),
+                new MaxEval(1000),
+                new ObjectiveFunction(function),
+                GoalType.MINIMIZE,
+                new InitialGuess(new double[paths.size() - 1]), // Initial guess for all flows except the last
+                new SimpleBounds(lowerBound, upperBound) // Enforce the bounds
+        );
+
+        double[] resultantFlows = calculateFlowsFromPoint(T, optimum.getPoint());
+        double cost = calculateTotalCost(paths, resultantFlows);
+
+        System.out.println("Optimal flow avg. cost: " + cost);
+
+        fillGraphFlows(paths, resultantFlows);
+        resultantFlows = Arrays.stream(resultantFlows).map(d -> Math.round(d * 100.0) / 100.0).toArray();
+        for (int i = 0; i < resultantFlows.length; i++) {
+            if (resultantFlows[i] > 0)
+                System.out.println("Optimal flow for path " + (i) + " ["+ paths.get(i).getCostFunction() + "] : " + "x=" + resultantFlows[i] + " [C(x)= " + paths.get(i).getCurrentCost() + "]");
+        }
+    }
+
+    @Test
+    public void TestFindOptimalFlowDiscrete() {
+        FlowGraph graph = createDiscreteBraessGraph();
+
+        List<FlowPath> paths = graph.findAllPaths();
+
+        double T = 10.0;
+
+        MultivariateFunction function = point -> {
+            double totalCost = 0.0;
+            double penalty = 1000000;
+
+            double[] flows = calculateIntegerFlowsFromPoint(T, point);
+
+            // Apply penalty if necessary
+            if (Arrays.stream(flows).anyMatch(flow -> flow < -10e-4) || Arrays.stream(flows).sum() > T) {
+                totalCost += penalty;
+            }
+
+            // Prepare flows in the graph
+            fillGraphFlows(paths, flows);
+
+            // Cost calculation
+            for (int i = 0; i < flows.length; i++) {
+                for (FlowEdge edge : paths.get(i).getEdges()) {
+                    totalCost += flows[i] * edge.getCurrentCost();
+                }
+            }
+
+            // Reset flows in the graph
+            resetGraphFlows(paths);
+
+            return totalCost;
+        };
+
+        double[] lowerBound = new double[paths.size() - 1]; // Lower bounds (all zeros)
+        double[] upperBound = new double[paths.size() - 1]; // Upper bounds (optional, can be set to a large number or left unbounded)
+        Arrays.fill(lowerBound, 0.0);
+        Arrays.fill(upperBound, Double.POSITIVE_INFINITY); // Or any large value that makes sense in your context
+
+        BOBYQAOptimizer optimizer = new BOBYQAOptimizer(2 * (paths.size() - 1) + 1); // Number of interpolation points
+        PointValuePair optimum = optimizer.optimize(
+                new MaxIter(1000),
+                new MaxEval(1000),
+                new ObjectiveFunction(function),
+                GoalType.MINIMIZE,
+                new InitialGuess(new double[paths.size() - 1]), // Initial guess for all flows except the last
+                new SimpleBounds(lowerBound, upperBound) // Enforce the bounds
+        );
+
+        double[] resultantFlows = calculateIntegerFlowsFromPoint(T, optimum.getPoint());
+        double cost = calculateTotalCost(paths, resultantFlows);
+
+        System.out.println("Optimal flow avg. cost: " + cost);
+
+        fillGraphFlows(paths, resultantFlows);
+        resultantFlows = Arrays.stream(resultantFlows).map(d -> Math.round(d * 100.0) / 100.0).toArray();
+        for (int i = 0; i < resultantFlows.length; i++) {
+            if (resultantFlows[i] > 0)
+                System.out.println("Optimal flow for path " + (i) + " ["+ paths.get(i).getCostFunction() + "] : " + "x=" + resultantFlows[i] + " [C(x)= " + paths.get(i).getCurrentCost() + "]");
+        }
+    }
+
+    @Test
+    public void TestFindNashFlow() {
+        FlowGraph graph = createExercise2Graph();
+
+        List<FlowPath> paths = graph.findAllPaths();
+
+        double T = 1.0;
+
+        MultivariateFunction function = point -> {
+            double totalCost = 0;
+            double penalty = 1000;
+
+            double[] flows = calculateFlowsFromPoint(T, point);
+
+            if (Arrays.stream(flows).anyMatch(flow -> flow < -10e-4) || Arrays.stream(flows).sum() > T) {
+                totalCost += penalty; // Penalize invalid distributions
+            }
+
+            fillGraphFlows(paths, flows);
+
+            double[] costs = new double[flows.length];
+
+            for (int i = 0; i < flows.length; i++) {
+                for (FlowEdge edge : paths.get(i).getEdges()) {
+                    costs[i] += edge.getCurrentCost();
+                }
+            }
+
+            resetGraphFlows(paths);
+
+            totalCost += calculateResValue(costs, flows);
+
+            // Objective: Minimize the variance or dissimilarity of costs
+            return totalCost;
+        };
+
+        SimplexOptimizer optimizer = new SimplexOptimizer(1e-5, 1e-5); // Number of interpolation points
+        // create a simplex
+        double[] simplexSizes = new double[paths.size() - 1];
+        Arrays.fill(simplexSizes, 1000.0);
+        NelderMeadSimplex simplex = new NelderMeadSimplex(simplexSizes);
+
+        double[] initialGuess = new double[paths.size() - 1];
+        Arrays.fill(initialGuess, T / (paths.size() - 1));
+
+        PointValuePair optimum = optimizer.optimize(
+                new MaxIter(100000),
+                new MaxEval(100000),
+                new ObjectiveFunction(function),
+                GoalType.MINIMIZE,
+                new InitialGuess(initialGuess), // Initial guess for all flows except the last
+                simplex
+        );
+
+        double[] resultantFlows = calculateFlowsFromPoint(T, optimum.getPoint());
+        double cost = calculateTotalCost(paths, resultantFlows);
+
+        System.out.println("Nash flow avg. cost: " + cost);
+
+        fillGraphFlows(paths, resultantFlows);
+        resultantFlows = Arrays.stream(resultantFlows).map(d -> Math.round(d * 100.0) / 100.0).toArray();
+        for (int i = 0; i < resultantFlows.length; i++) {
+            if (resultantFlows[i] > 0)
+                System.out.println("Nash flow for path " + (i) + " ["+ paths.get(i).getCostFunction() + "] : " + "x=" + resultantFlows[i] + " [C(x)= " + paths.get(i).getCurrentCost() + "]");
+        }
+    }
+
+    @Test
+    public void TestFindNashFlowDiscrete() {
+        FlowGraph graph = createDiscreteBraessGraph();
+
+        List<FlowPath> paths = graph.findAllPaths();
+
+        double T = 10.0;
+
+        MultivariateFunction function = point -> {
+            double totalCost = 0;
+            double penalty = 1000000;
+
+            double[] flows = calculateIntegerFlowsFromPoint(T, point);
+
+            if (Arrays.stream(flows).anyMatch(flow -> flow < -10e-4) || Arrays.stream(flows).sum() > T) {
+                return penalty; // Penalize invalid distributions
+            }
+
+
+            fillGraphFlows(paths, flows);
+
+            double[] costs = new double[flows.length];
+
+            for (int i = 0; i < flows.length; i++) {
+                for (FlowEdge edge : paths.get(i).getEdges()) {
+                    costs[i] += edge.getCurrentCost();
+                }
+            }
+
+            // Objective: Minimize the variance or dissimilarity of costs
+            // double averageCost = Arrays.stream(costs).average().orElse(0);
+            // totalCost = Arrays.stream(costs).map(cost -> Math.pow(cost - averageCost, 2)).sum();
+
+            resetGraphFlows(paths);
+
+            totalCost = calculateResValue(costs, flows);
+
+            // Objective: Minimize the variance or dissimilarity of costs
+            return totalCost;
+        };
+
+        double[] lowerBound = new double[paths.size() - 1]; // Lower bounds (all zeros)
+        double[] upperBound = new double[paths.size() - 1]; // Upper bounds (optional, can be set to a large number or left unbounded)
+        Arrays.fill(lowerBound, 0.0);
+        Arrays.fill(upperBound, Double.POSITIVE_INFINITY); // Or any large value that makes sense in your context
+
+        BOBYQAOptimizer optimizer = new BOBYQAOptimizer(2 * (paths.size() - 1) + 1); // Number of interpolation points
+        PointValuePair optimum = optimizer.optimize(
+                new MaxIter(1000),
+                new MaxEval(1000),
+                new ObjectiveFunction(function),
+                GoalType.MINIMIZE,
+//              new InitialGuess(new double[paths.size() - 1]), // Initial guess for all flows except the last
+                new InitialGuess(new double[paths.size() - 1]), // Initial guess for all flows except the last
+                new SimpleBounds(lowerBound, upperBound) // Enforce the bounds
+        );
+
+        double[] resultantFlows = calculateIntegerFlowsFromPoint(T, optimum.getPoint());
+        double cost = calculateTotalCost(paths, resultantFlows);
+
+        System.out.println("Nash flow avg. cost: " + cost);
+
+        fillGraphFlows(paths, resultantFlows);
+        resultantFlows = Arrays.stream(resultantFlows).map(d -> Math.round(d * 100.0) / 100.0).toArray();
+        for (int i = 0; i < resultantFlows.length; i++) {
+            if (resultantFlows[i] > 0)
+                System.out.println("Nash flow for path " + (i) + " ["+ paths.get(i).getCostFunction() + "] : " + "x=" + resultantFlows[i] + " [C(x)= " + paths.get(i).getCurrentCost() + "]");
+        }
+    }
+
+    private FlowGraph createBraessGraph() {
         FlowGraph graph = new FlowGraph();
 
         // Create 4 vertices, set some as sources and sinks
@@ -85,76 +350,200 @@ public class FlowGraphTest {
         graph.addEdge(new FlowEdge(graph.getVertex(2), graph.getVertex(3), "x"));
         graph.addEdge(new FlowEdge(graph.getVertex(1), graph.getVertex(2), "x"));
 
-        List<FlowPath> paths = graph.findAllPaths();
+        return graph;
+    }
 
-        // Expected number of paths will depend on how you set up the graph
-        int expectedNumberOfPaths = 3; // Define based on your graph structure
-        assertEquals(expectedNumberOfPaths, paths.size());
+    private FlowGraph createDiscreteBraessGraph() {
+        FlowGraph graph = new FlowGraph();
 
-        double T = 1.0;
+        // Create 4 vertices, set some as sources and sinks
+        for (int i = 0; i < 4; i++) {
+            FlowVertex vertex = new FlowVertex(i, i); // x, y can be arbitrary
+            graph.addVertex(vertex);
+            if (i == 0) vertex.setSource(true); // First one as source
+            if (i == 3) vertex.setSink(true);   // Last one as sink
+        }
 
-        MultivariateFunction function = point -> {
-            double totalCost = 0.0;
-            double remainingFlow = T;
-            double penalty = 1000000;
+        graph.addEdge(new FlowEdge(graph.getVertex(0), graph.getVertex(1), "x"));
+        graph.addEdge(new FlowEdge(graph.getVertex(1), graph.getVertex(3), "10"));
+        graph.addEdge(new FlowEdge(graph.getVertex(0), graph.getVertex(2), "10"));
+        graph.addEdge(new FlowEdge(graph.getVertex(2), graph.getVertex(3), "x"));
+        graph.addEdge(new FlowEdge(graph.getVertex(1), graph.getVertex(2), "x"));
 
-            double[] flows = new double[point.length + 1];
-            for (int i = 0; i < point.length; i++) {
-                flows[i] = point[i];
-                remainingFlow -= point[i];
+        return graph;
+    }
+
+    private FlowGraph createExercise2Graph() {
+        FlowGraph graph = new FlowGraph();
+
+        // Create 6 vertices, set some as sources and sinks
+        for (int i = 0; i < 6; i++) {
+            FlowVertex vertex = new FlowVertex(i, i); // x, y can be arbitrary
+            graph.addVertex(vertex);
+            if (i == 0) vertex.setSource(true); // First one as source
+            if (i == 4) vertex.setSink(true);   // Last one as sink
+        }
+
+        graph.addEdge(new FlowEdge(graph.getVertex(0), graph.getVertex(1), "1"));
+        graph.addEdge(new FlowEdge(graph.getVertex(0), graph.getVertex(2), "x"));
+        graph.addEdge(new FlowEdge(graph.getVertex(0), graph.getVertex(3), "x"));
+
+        graph.addEdge(new FlowEdge(graph.getVertex(2), graph.getVertex(3), "1"));
+        graph.addEdge(new FlowEdge(graph.getVertex(1), graph.getVertex(3), "x"));
+        graph.addEdge(new FlowEdge(graph.getVertex(1), graph.getVertex(4), "2*x"));
+        graph.addEdge(new FlowEdge(graph.getVertex(3), graph.getVertex(4), "2*x"));
+        graph.addEdge(new FlowEdge(graph.getVertex(3), graph.getVertex(5), "x"));
+        graph.addEdge(new FlowEdge(graph.getVertex(5), graph.getVertex(4), "1"));
+
+        return graph;
+    }
+
+    private FlowGraph createDiscreteExercise2Graph() {
+        FlowGraph graph = new FlowGraph();
+
+        // Create 6 vertices, set some as sources and sinks
+        for (int i = 0; i < 6; i++) {
+            FlowVertex vertex = new FlowVertex(i, i); // x, y can be arbitrary
+            graph.addVertex(vertex);
+            if (i == 0) vertex.setSource(true); // First one as source
+            if (i == 4) vertex.setSink(true);   // Last one as sink
+        }
+
+        graph.addEdge(new FlowEdge(graph.getVertex(0), graph.getVertex(1), "10"));
+        graph.addEdge(new FlowEdge(graph.getVertex(0), graph.getVertex(2), "x"));
+        graph.addEdge(new FlowEdge(graph.getVertex(0), graph.getVertex(3), "x"));
+        graph.addEdge(new FlowEdge(graph.getVertex(2), graph.getVertex(3), "10"));
+        graph.addEdge(new FlowEdge(graph.getVertex(3), graph.getVertex(1), "x"));
+        graph.addEdge(new FlowEdge(graph.getVertex(1), graph.getVertex(3), "x"));
+        graph.addEdge(new FlowEdge(graph.getVertex(1), graph.getVertex(4), "2*x"));
+        graph.addEdge(new FlowEdge(graph.getVertex(3), graph.getVertex(4), "2*x"));
+        graph.addEdge(new FlowEdge(graph.getVertex(3), graph.getVertex(5), "x"));
+        graph.addEdge(new FlowEdge(graph.getVertex(4), graph.getVertex(5), "10"));
+
+        return graph;
+    }
+
+    private void fillGraphFlows(List<FlowPath> paths, double[] flows) {
+        resetGraphFlows(paths);
+
+        for (int i = 0; i < paths.size(); i++) {
+            List<FlowEdge> edges = paths.get(i).getEdges();
+            for (FlowEdge edge : edges) {
+                edge.setCurrentFlow(edge.getCurrentFlow() + flows[i]);
             }
-            flows[point.length] = remainingFlow;
-
-            if (Arrays.stream(flows).sum() > T) {
-                totalCost += penalty;
-            }
-
-            for (int i = 0; i < flows.length; i++) {
-                for (FlowEdge edge : paths.get(i).getEdges()) {
-                    edge.setCurrentFlow(edge.getCurrentFlow() + flows[i]);
-                }
-            }
-
-            for (int i = 0; i < flows.length; i++) {
-                for (FlowEdge edge : paths.get(i).getEdges()) {
-                    totalCost += flows[i] * edge.getCurrentCost();
-                }
-            }
-
-            for (FlowPath path : paths) {
-                for (FlowEdge edge : path.getEdges()) {
-                    edge.setCurrentFlow(0.0);
-                }
-            }
-
-            return totalCost;
-        };
-
-        double[] lowerBound = new double[paths.size() - 1]; // Lower bounds (all zeros)
-        double[] upperBound = new double[paths.size() - 1]; // Upper bounds (optional, can be set to a large number or left unbounded)
-        Arrays.fill(lowerBound, 0.0);
-        Arrays.fill(upperBound, Double.POSITIVE_INFINITY); // Or any large value that makes sense in your context
-
-        BOBYQAOptimizer optimizer = new BOBYQAOptimizer(2 * (paths.size() - 1) + 1); // Number of interpolation points
-        PointValuePair optimum = optimizer.optimize(
-                new MaxIter(100),
-                new MaxEval(100),
-                new ObjectiveFunction(function),
-                GoalType.MINIMIZE,
-                new InitialGuess(new double[paths.size() - 1]), // Initial guess for all flows except the last
-                new SimpleBounds(lowerBound, upperBound) // Enforce the bounds
-        );
-
-        double optimumCost = function.value(optimum.getPoint());
-        optimumCost = Math.round(optimumCost * 100.0) / 100.0;
-        System.out.println("Optimal flow avg. cost: " + optimumCost);
-
-        double[] optimumFlows = Arrays.copyOf(optimum.getPoint(), optimum.getPoint().length + 1);
-        optimumFlows[optimumFlows.length - 1] = T - Arrays.stream(optimum.getPoint()).sum();
-        optimumFlows = Arrays.stream(optimumFlows).map(d -> Math.round(d * 100.0) / 100.0).toArray();
-
-        for (int i = 0; i < optimumFlows.length; i++) {
-            System.out.println("Optimal flow for path " + (i) + " ["+ paths.get(i).getCostFunction() + "] : " + optimumFlows[i] );
         }
     }
+
+    private void resetGraphFlows(List<FlowPath> paths) {
+        double zeroFlow = 0.0;
+
+        for (FlowPath path : paths) {
+            for (FlowEdge edge : path.getEdges()) {
+                edge.setCurrentFlow(zeroFlow);
+            }
+        }
+    }
+
+    private double[] calculateFlowsFromPoint(double totalFlow, double[] point) {
+        double[] flows = new double[point.length + 1];
+        double remainingFlow = totalFlow;
+
+        for (int i = 0; i < point.length; i++) {
+            flows[i] = point[i];
+            remainingFlow -= point[i];
+        }
+
+        flows[point.length] = remainingFlow;
+        return flows;
+    }
+
+    private double[] calculateIntegerFlowsFromPoint(double totalFlow, double[] point) {
+        double[] flows = new double[point.length + 1];
+        int totalIntegerFlow = (int) Math.round(totalFlow);
+        int sumOfFlows = 0;
+
+        for (int i = 0; i < point.length; i++) {
+            flows[i] = Math.ceil(point[i]);
+            sumOfFlows += flows[i];
+        }
+
+        // Adjust the last flow to ensure the sum equals totalFlow
+        flows[point.length] = totalIntegerFlow - sumOfFlows;
+
+        // Optional: Check if the adjustment made the last flow negative.
+        // If so, redistribute the flow.
+        if (flows[point.length] < 0) {
+            redistributeFlows(flows, totalIntegerFlow);
+        }
+
+        return flows;
+    }
+
+    private void redistributeFlows(double[] flows, int totalFlow) {
+        // Implementation of flow redistribution logic
+        // One simple approach could be to reduce other flows by 1 until the sum is balanced.
+        // This is a basic and naive approach, more sophisticated logic might be needed based on your specific requirements.
+        int sum = Arrays.stream(flows).mapToInt(d -> (int) d).sum();
+        for (int i = 0; i < flows.length - 1 && sum > totalFlow; i++) {
+            if (flows[i] > 0) {
+                flows[i]--;
+                sum--;
+            }
+        }
+        flows[flows.length - 1] = totalFlow - sum;
+    }
+
+    private double calculateTotalCost(List<FlowPath> paths, double[] flows) {
+        fillGraphFlows(paths, flows);
+        double totalFlow = Arrays.stream(flows).sum();
+
+        double result = 0.0;
+        for (int i = 0; i < paths.size(); i++) {
+            if (totalFlow > 1.0) {
+                result += paths.get(i).getCurrentCost() * (flows[i] / totalFlow);
+            }
+            else {
+                result += paths.get(i).getCurrentCost() * flows[i];
+            }
+        }
+
+        resetGraphFlows(paths);
+
+        return result;
+    }
+
+    public double calculateResValue(double[] costs, double[] flows) {
+        double totalCost = 0;
+        int usedPaths = 0;
+
+        double averageCost = totalCost / usedPaths;
+        double resValue = 0;
+
+        Integer[] indices = new Integer[costs.length];
+        for (int i = 0; i < indices.length; i++) {
+            indices[i] = i;
+        }
+
+        // Sort the indices array based on the values in the costs array
+        Arrays.sort(indices, Comparator.comparingDouble(index -> costs[index]));
+
+        // Rearrange the costs and flows arrays based on the sorted indices
+        double[] sortedCosts = new double[costs.length];
+        double[] sortedFlows = new double[flows.length];
+        for (int i = 0; i < indices.length; i++) {
+            int index = indices[i];
+            sortedCosts[i] = costs[index];
+            sortedFlows[i] = flows[index];
+        }
+
+        double val = 0;
+        for (int i = 0; i < sortedCosts.length; i++) {
+            resValue += sortedFlows[i] * val;
+            val += 10;
+        }
+
+        return resValue;
+    }
 }
+
+

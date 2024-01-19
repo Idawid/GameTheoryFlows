@@ -2,6 +2,7 @@ package app.managers.action.common;
 
 import app.managers.graph.GraphManager;
 import app.managers.graph.common.Edge;
+import app.managers.graph.flow.FlowEdge;
 import app.managers.view.GraphViewManager;
 
 public class AddEdgeAction implements Action {
@@ -13,6 +14,9 @@ public class AddEdgeAction implements Action {
         this.edge = edge;
         this.graphManager = graphManager;
         this.viewManager = viewManager;
+        if (edge instanceof FlowEdge) {
+            ((FlowEdge) edge).addObserver(viewManager);
+        }
     }
 
     @Override

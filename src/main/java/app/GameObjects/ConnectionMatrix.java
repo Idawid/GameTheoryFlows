@@ -206,7 +206,7 @@ public class ConnectionMatrix {
         Random random = new Random();
         while (payload > 0) {
             int index = random.nextInt(this.paths.size());
-            double value = random.nextDouble(1.0);
+            double value = random.nextDouble(); // it already returns a value in [0,1]
             value = value <= payload ? value : payload;
             payload -= value;
             addPayloadPath(value, this.paths.get(index));

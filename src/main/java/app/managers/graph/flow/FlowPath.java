@@ -53,4 +53,14 @@ public class FlowPath extends FlowEdge {
     public List<FlowEdge> getEdges() {
         return edges;
     }
+
+    @Override
+    public double getCurrentCost() {
+        double totalCost = 0.0;
+        for (FlowEdge edge : edges) {
+            totalCost += edge.getCurrentCost();
+        }
+
+        return totalCost;
+    }
 }

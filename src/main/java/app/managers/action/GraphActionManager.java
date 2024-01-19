@@ -5,6 +5,8 @@ import app.managers.action.common.*;
 import app.managers.graph.GraphManager;
 import app.managers.graph.common.Edge;
 import app.managers.graph.common.Vertex;
+import app.managers.graph.flow.FlowEdge;
+import app.managers.graph.flow.FlowVertex;
 import app.managers.view.GraphViewManager;
 
 import java.util.Stack;
@@ -99,7 +101,7 @@ public class GraphActionManager {
     }
 
     public void addEdge(Vertex vertex, Vertex vertex1) {
-        addEdge(new Edge(vertex,vertex1));
+        addEdge(new FlowEdge(vertex, vertex1, "1"));
     }
 }
 

@@ -70,7 +70,7 @@ public class MainApplication extends Application {
         }
         System.out.println("------------");
         test1.randomPayloadDiscrete(100);
-        while(test1.simulationStepDiscrete()){
+        while(test1.simulationStepDiscrete()) {
 
         }
         controller.drawGraph(test1.getPaths(),test1.getNumberOfVertices());

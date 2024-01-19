@@ -90,30 +90,33 @@ public class ConnectionMatrix {
         visited.add(0);
         addPath(initialPath, 0, finish, visited);
     }
-    public double anarchyCost(double payload, double step){
+
+    public double anarchyCost(double payload, double step) {
         double bestSolution = bestGameValue(payload, step).getValue1();
         List<Double> nashEquils = getAllNashEquil(payload, step).getValue1();
-        if (nashEquils.size() ==1){
-            return nashEquils.get(0)/bestSolution;
+        if (nashEquils.size() == 1) {
+            return nashEquils.get(0) / bestSolution;
         }
         double worstNashEquil = nashEquils.get(0);
-        for(Double d : nashEquils){
-            worstNashEquil = Math.max(worstNashEquil,d);
+        for (Double d : nashEquils) {
+            worstNashEquil = Math.max(worstNashEquil, d);
         }
-        return worstNashEquil/bestSolution;
+        return worstNashEquil / bestSolution;
     }
-    public double stabilityCost(double payload, double step){
+
+    public double stabilityCost(double payload, double step) {
         double bestSolution = bestGameValue(payload, step).getValue1();
         List<Double> nashEquils = getAllNashEquil(payload, step).getValue1();
-        if (nashEquils.size() ==1){
-            return nashEquils.get(0)/bestSolution;
+        if (nashEquils.size() == 1) {
+            return nashEquils.get(0) / bestSolution;
         }
         double bestNashEquil = nashEquils.get(0);
-        for(Double d : nashEquils){
-            bestNashEquil = Math.min(bestNashEquil,d);
+        for (Double d : nashEquils) {
+            bestNashEquil = Math.min(bestNashEquil, d);
         }
-        return bestNashEquil/bestSolution;
+        return bestNashEquil / bestSolution;
     }
+
     public void fixedPayload(double payload, double step) {
         resetPayload();
         double added = 0;

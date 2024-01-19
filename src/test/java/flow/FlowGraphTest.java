@@ -80,7 +80,7 @@ public class FlowGraphTest {
 
         MultivariateFunction function = point -> {
             double totalCost = 0.0;
-            double penalty = 1000000;
+            double penalty = 100;
 
             double[] flows = calculateFlowsFromPoint(T, point);
 
@@ -129,7 +129,7 @@ public class FlowGraphTest {
         resultantFlows = Arrays.stream(resultantFlows).map(d -> Math.round(d * 100.0) / 100.0).toArray();
         for (int i = 0; i < resultantFlows.length; i++) {
             if (resultantFlows[i] > 0)
-                System.out.println("Optimal flow for path " + (i) + " ["+ paths.get(i).getCostFunction() + "] : " + "x=" + resultantFlows[i] + " [C(x)= " + paths.get(i).getCurrentCost() + "]");
+                System.out.println("Optimal flow for path " + (i) + " [" + paths.get(i).getCostFunction() + "] : " + "x=" + resultantFlows[i] + " [C(x)= " + paths.get(i).getCurrentCost() + "]");
         }
     }
 
@@ -143,7 +143,7 @@ public class FlowGraphTest {
 
         MultivariateFunction function = point -> {
             double totalCost = 0.0;
-            double penalty = 1000000;
+            double penalty = 1000;
 
             double[] flows = calculateIntegerFlowsFromPoint(T, point);
 
@@ -175,8 +175,8 @@ public class FlowGraphTest {
 
         BOBYQAOptimizer optimizer = new BOBYQAOptimizer(2 * (paths.size() - 1) + 1); // Number of interpolation points
         PointValuePair optimum = optimizer.optimize(
-                new MaxIter(1000),
-                new MaxEval(1000),
+                new MaxIter(10000),
+                new MaxEval(10000),
                 new ObjectiveFunction(function),
                 GoalType.MINIMIZE,
                 new InitialGuess(new double[paths.size() - 1]), // Initial guess for all flows except the last
@@ -192,7 +192,7 @@ public class FlowGraphTest {
         resultantFlows = Arrays.stream(resultantFlows).map(d -> Math.round(d * 100.0) / 100.0).toArray();
         for (int i = 0; i < resultantFlows.length; i++) {
             if (resultantFlows[i] > 0)
-                System.out.println("Optimal flow for path " + (i) + " ["+ paths.get(i).getCostFunction() + "] : " + "x=" + resultantFlows[i] + " [C(x)= " + paths.get(i).getCurrentCost() + "]");
+                System.out.println("Optimal flow for path " + (i) + " [" + paths.get(i).getCostFunction() + "] : " + "x=" + resultantFlows[i] + " [C(x)= " + paths.get(i).getCurrentCost() + "]");
         }
     }
 
@@ -259,7 +259,7 @@ public class FlowGraphTest {
         resultantFlows = Arrays.stream(resultantFlows).map(d -> Math.round(d * 100.0) / 100.0).toArray();
         for (int i = 0; i < resultantFlows.length; i++) {
             if (resultantFlows[i] > 0)
-                System.out.println("Nash flow for path " + (i) + " ["+ paths.get(i).getCostFunction() + "] : " + "x=" + resultantFlows[i] + " [C(x)= " + paths.get(i).getCurrentCost() + "]");
+                System.out.println("Nash flow for path " + (i) + " [" + paths.get(i).getCostFunction() + "] : " + "x=" + resultantFlows[i] + " [C(x)= " + paths.get(i).getCurrentCost() + "]");
         }
     }
 
@@ -329,7 +329,7 @@ public class FlowGraphTest {
         resultantFlows = Arrays.stream(resultantFlows).map(d -> Math.round(d * 100.0) / 100.0).toArray();
         for (int i = 0; i < resultantFlows.length; i++) {
             if (resultantFlows[i] > 0)
-                System.out.println("Nash flow for path " + (i) + " ["+ paths.get(i).getCostFunction() + "] : " + "x=" + resultantFlows[i] + " [C(x)= " + paths.get(i).getCurrentCost() + "]");
+                System.out.println("Nash flow for path " + (i) + " [" + paths.get(i).getCostFunction() + "] : " + "x=" + resultantFlows[i] + " [C(x)= " + paths.get(i).getCurrentCost() + "]");
         }
     }
 
@@ -501,8 +501,7 @@ public class FlowGraphTest {
         for (int i = 0; i < paths.size(); i++) {
             if (totalFlow > 1.0) {
                 result += paths.get(i).getCurrentCost() * (flows[i] / totalFlow);
-            }
-            else {
+            } else {
                 result += paths.get(i).getCurrentCost() * flows[i];
             }
         }

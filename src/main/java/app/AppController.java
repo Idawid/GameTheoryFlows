@@ -26,7 +26,8 @@ public class AppController {
     private GraphManager graphManager;
     private GraphViewManager viewManager;
     private GraphActionManager actionManager;
-    private Map<Integer,Vertex> printedVertices;
+    private Map<Integer, Vertex> printedVertices;
+
     public AppController(Scene scene) {
         this.state = new AppState();
         this.graphManager = new GraphManager();
@@ -46,41 +47,42 @@ public class AppController {
 
         scene.addEventFilter(KeyEvent.KEY_PRESSED, this::handleKeyPressed);
     }
+
     public void drawGraph(List<Path> paths, int verticesNum) {
         double width = viewManager.getGraphView().getWidth();
         double height = viewManager.getGraphView().getHeight();
         int pathNum = paths.size();
         int maxPathLength = 0;
-        for(Path path : paths){
+        for (Path path : paths) {
             maxPathLength = Math.max(maxPathLength, path.routeLength());
         }
         int xStart = 0;
-        int yStart = (int)(pathNum/2);
-        int xEnd = maxPathLength-1;
+        int yStart = (int) (pathNum / 2);
+        int xEnd = maxPathLength - 1;
         int yEnd = yStart;
-        double cellHeight = height/pathNum;
-        double cellWidth = width/maxPathLength;
+        double cellHeight = height / pathNum;
+        double cellWidth = width / maxPathLength;
         addVertexFromPath(0, getVertexInGraph(cellWidth, cellHeight, xStart, yStart));
         for (int i = 0; i < paths.size(); i++) {
             Path p = paths.get(i);
-            for (int j = 1; j < p.routeLength()-1; j++) {
+            for (int j = 1; j < p.routeLength() - 1; j++) {
                 int id = p.getRoute().get(j);
-                if(!wasPrinted(id)){
-                    addVertexFromPath(id,getVertexInGraph(cellWidth, cellHeight, j,i));
+                if (!wasPrinted(id)) {
+                    addVertexFromPath(id, getVertexInGraph(cellWidth, cellHeight, j, i));
                 }
-                actionManager.addEdge(printedVertices.get(p.getRoute().get(j-1)), printedVertices.get(p.getRoute().get(j)));
+                actionManager.addEdge(printedVertices.get(p.getRoute().get(j - 1)), printedVertices.get(p.getRoute().get(j)));
             }
         }
-        addVertexFromPath(verticesNum-1, getVertexInGraph(cellWidth, cellHeight, xEnd, yEnd));
+        addVertexFromPath(verticesNum - 1, getVertexInGraph(cellWidth, cellHeight, xEnd, yEnd));
         //add last edges
-        for(Path path : paths){
-            int lastIndex = path.getRoute().get(path.getRoute().size()-2);
-            FlowEdge newEdge = new FlowEdge(printedVertices.get(lastIndex), printedVertices.get(verticesNum-1), "1");
+        for (Path path : paths) {
+            int lastIndex = path.getRoute().get(path.getRoute().size() - 2);
+            FlowEdge newEdge = new FlowEdge(printedVertices.get(lastIndex), printedVertices.get(verticesNum - 1), "1");
             actionManager.addEdge(newEdge);
         }
     }
 
-    private boolean wasPrinted(int id){
+    private boolean wasPrinted(int id) {
         for (Integer printedId : printedVertices.keySet()) {
             if (printedId == id) {
                 return true;
@@ -91,12 +93,12 @@ public class AppController {
 
     private void addVertexFromPath(int id, Vertex vertex) {
         actionManager.addVertex(vertex);
-        printedVertices.put(id,vertex);
+        printedVertices.put(id, vertex);
     }
 
-    private Vertex getVertexInGraph(double cellWidth, double cellHeight, int x, int y){
+    private Vertex getVertexInGraph(double cellWidth, double cellHeight, int x, int y) {
         double offset = x % 2 == 0 ? 0.5 : 0.75;
-        return new FlowVertex(cellWidth*(x+offset), cellHeight*(y+offset));
+        return new FlowVertex(cellWidth * (x + offset), cellHeight * (y + offset));
     }
 
     private void handleMouseClicked(MouseEvent event) {
@@ -104,8 +106,7 @@ public class AppController {
             FlowVertex newVertex = new FlowVertex(event.getX(), event.getY());
             newVertex.addObserver(viewManager);
             actionManager.addVertex(newVertex);
-        }
-        else if (event.getButton() == MouseButton.PRIMARY) {
+        } else if (event.getButton() == MouseButton.PRIMARY) {
             // Edge / Vertex selection
             if (event.isShiftDown()) {
                 double SELECTION_THRESHOLD = 30.0;

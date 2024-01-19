@@ -290,7 +290,7 @@ public class GraphViewManager implements Observer {
     }
 
     private double calculateMaxFlow() {
-        double maxFlow = 0.0;
+        double maxFlow = 0;
 
         for (Vertex vertex : vertexGraphicsMap.keySet()) {
             if (vertex instanceof FlowVertex) {
@@ -299,7 +299,8 @@ public class GraphViewManager implements Observer {
             }
         }
 
-        return maxFlow;
+        // Default maxFlow is 1.0
+        return maxFlow == 0 ? 1.0 : maxFlow;
     }
 
     private double clamp(double value, double min, double max) {
@@ -587,8 +588,15 @@ public class GraphViewManager implements Observer {
             drawVertex((FlowVertex)subject);
 
             // We've changed the Source vertex
-            // Run the simulation or
             if (((FlowVertex) subject).isSource()) {
+                // Redraw the edges
+                List<Edge> edgesToRedraw = new ArrayList<>(edgeGraphicsMap.keySet());
+                for (Edge edge : edgesToRedraw) {
+                    undrawEdge(edge);
+                    drawEdge(edge);
+                }
+                // Start the simulation maybe ...?
+
 
             }
         }

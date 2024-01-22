@@ -1,5 +1,6 @@
 package app.managers.view;
 
+import app.AppController;
 import app.Observer;
 import app.managers.graph.common.Edge;
 import app.managers.graph.common.Vertex;
@@ -7,16 +8,26 @@ import app.managers.graph.flow.FlowEdge;
 import app.managers.graph.flow.FlowVertex;
 import app.managers.view.common.SelectionResult;
 import app.managers.view.common.SelectionType;
+import javafx.application.Platform;
+import javafx.beans.binding.DoubleBinding;
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.SimpleDoubleProperty;
+import javafx.geometry.HPos;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.ChoiceDialog;
+import javafx.scene.control.Label;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
-import javafx.scene.layout.Pane;
+import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
@@ -25,7 +36,6 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.transform.Rotate;
 
-import java.awt.*;
 import java.util.*;
 import java.util.List;
 
@@ -33,50 +43,90 @@ public class GraphViewManager implements Observer {
     private Pane graphView;
     private Pane edgeLayer;
     private Pane vertexLayer;
+    private final AnchorPane guiLayer;
     private Map<Vertex, Group> vertexGraphicsMap;
     private Map<Edge, Group> edgeGraphicsMap;
     private final double gridSpacing = 20;
-
     private Line tempEdgeLine;
+    private boolean isOptionContinuous = false;
+    private DoubleProperty ne = new SimpleDoubleProperty();
+    private DoubleProperty opt = new SimpleDoubleProperty();
 
     public GraphViewManager(Scene scene) {
         this.vertexGraphicsMap = new HashMap<>();
         this.edgeGraphicsMap = new HashMap<>();
 
-        this.graphView = new Pane();
+        this.graphView = new AnchorPane();
         this.edgeLayer = new Pane();
         this.vertexLayer = new Pane();
+        this.guiLayer = new AnchorPane();
 
         // Allow mouse events to pass through the panes' transparent areas
         graphView.setPickOnBounds(false);
         edgeLayer.setPickOnBounds(false);
         vertexLayer.setPickOnBounds(false);
+        guiLayer.setPickOnBounds(false);
 
-        graphView.getChildren().addAll(edgeLayer, vertexLayer);
+        graphView.getChildren().addAll(edgeLayer, vertexLayer, guiLayer);
         scene.setRoot(graphView);
 
-        createGridBackground(scene);
+        createGridBackground();
+        createGUIButtons();
+
+        createTextInfoPOA();
     }
 
-    private void createGridBackground(Scene scene) {
+    private void createTextInfoPOA() {
+        Text neText = new Text();
+        neText.textProperty().bind(ne.asString("%.1f"));
+
+        Text optText = new Text();
+        optText.textProperty().bind(opt.asString("%.1f"));
+
+        DoubleBinding calculation = new DoubleBinding() {
+            {
+                super.bind(ne, opt);
+            }
+
+            @Override
+            protected double computeValue() {
+                return (opt.get() == 0) ? Double.NaN : ne.get() / opt.get();
+            }
+        };
+
+        Text calculationText = new Text();
+        calculationText.textProperty().bind(calculation.asString("%.1f"));
+
+        HBox hbox = new HBox(new Text("PoA = "), neText, new Text(" / "), optText, new Text(" = "), calculationText);
+
+        hbox.setAlignment(Pos.TOP_CENTER);
+        for (Node child : hbox.getChildren()) {
+            if (child instanceof Text) {
+                ((Text) child).setFont(Font.font("Gill Sans MT Bold", FontWeight.BOLD, 30));
+            }
+        }
+
+        Platform.runLater(() -> drawInfo(hbox));
+
+        guiLayer.getChildren().add(hbox);
+    }
+
+    private void createGridBackground() {
         Canvas gridCanvas = new Canvas();
-        gridCanvas.widthProperty().bind(scene.widthProperty());
-        gridCanvas.heightProperty().bind(scene.heightProperty());
-        drawGrid(gridCanvas);
+
+        gridCanvas.widthProperty().bind(graphView.widthProperty());
+        gridCanvas.heightProperty().bind(graphView.heightProperty());
+
+        GraphicsContext gc = gridCanvas.getGraphicsContext2D();
+        gc.setStroke(Color.LIGHTGRAY);
+        gc.setLineWidth(0.5);
+
+        Platform.runLater(() -> drawGrid(gridCanvas));
+
         graphView.getChildren().add(0, gridCanvas);
     }
 
     private void drawGrid(Canvas canvas) {
-        GraphicsContext gc = canvas.getGraphicsContext2D();
-        gc.setStroke(Color.LIGHTGRAY);
-        gc.setLineWidth(0.5);
-        redrawGrid(canvas);
-
-        canvas.widthProperty().addListener(evt -> redrawGrid(canvas));
-        canvas.heightProperty().addListener(evt -> redrawGrid(canvas));
-    }
-
-    private void redrawGrid(Canvas canvas) {
         GraphicsContext gc = canvas.getGraphicsContext2D();
         gc.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
 
@@ -89,6 +139,119 @@ public class GraphViewManager implements Observer {
         for (double i = gridSpacing; i < height; i += gridSpacing) {
             gc.strokeLine(0, i, width, i);
         }
+    }
+
+    private void createGUIButtons() {
+        // Create buttons and add event handlers
+        Pane buttonClear = createBasicButton("/delete-icon.png");
+        buttonClear.setOnMouseClicked(e -> AppController.getInstance(graphView.getScene()).clearGraph());
+
+        Pane buttonRunOpt = createBasicButton("/run-optimal.png");
+        buttonRunOpt.setOnMouseClicked(e -> AppController.getInstance(graphView.getScene()).runSimulationOptimum());
+
+        Pane buttonRunNE = createBasicButton("/run-nash-equilibrium.png");
+        buttonRunNE.setOnMouseClicked(e -> AppController.getInstance(graphView.getScene()).runSimulationNashEquilibrium());
+
+        Pane buttonDCOption = createBasicButton();
+        Label letterD = new Label("D");
+        letterD.setStyle("-fx-text-fill: black;");
+        letterD.setFont(Font.font("Gill Sans MT Bold", FontWeight.BOLD, 36));
+        letterD.setPrefHeight(buttonDCOption.getPrefHeight());
+        letterD.setPrefWidth(buttonDCOption.getPrefWidth());
+        letterD.setAlignment(Pos.TOP_CENTER);
+        letterD.setPadding(new Insets(-1));
+        StackPane.setMargin(letterD, new Insets(15));
+        buttonDCOption.getChildren().add(letterD);
+
+        buttonDCOption.setOnMouseClicked(e -> changeOption(buttonDCOption));
+
+        // Create a container (HBox) for buttons
+        HBox buttonContainer = new HBox();
+        buttonContainer.setSpacing(10); // Adjust spacing between buttons as needed
+        buttonContainer.getChildren().addAll(buttonClear, buttonRunOpt, buttonRunNE, buttonDCOption);
+
+        // Add buttons to the GUI layer
+        guiLayer.getChildren().addAll(buttonContainer);
+
+        // Draw after the scene rendering
+        Platform.runLater(() -> drawButtons(buttonContainer));
+    }
+
+    private void changeOption(Pane buttonDCOption) {
+        isOptionContinuous = !isOptionContinuous;
+
+        Label letterLabel = (Label) buttonDCOption.getChildren().get(0);
+
+        if (isOptionContinuous) {
+            letterLabel.setText("C");
+        } else {
+            letterLabel.setText("D");
+        }
+    }
+
+    private Pane createBasicButton() {
+        Pane button = new Pane();
+
+        button.setStyle("-fx-background-color: rgba(200, 200, 200, 0.7); -fx-border-color: black; -fx-border-radius: 5; -fx-border-width: 2px; -fx-padding: 5;");
+        button.setPrefSize(50, 50);
+
+        button.setOnMouseEntered(e -> button.setCursor(Cursor.HAND));
+        button.setOnMouseExited(e -> button.setCursor(Cursor.DEFAULT));
+
+        button.setOnMouseEntered(e -> button.setStyle("-fx-background-color: rgba(170, 170, 170, 0.6); -fx-border-color: black; -fx-border-radius: 5; -fx-border-width: 2px; -fx-padding: 5;"));
+        button.setOnMouseExited(e -> button.setStyle("-fx-background-color: rgba(200, 200, 200, 0.6); -fx-border-color: black; -fx-border-radius: 5; -fx-border-width: 2px; -fx-padding: 5;"));
+
+        button.setOnMousePressed(e -> {
+            button.setScaleX(0.95);
+            button.setScaleY(0.95);
+        });
+
+        button.setOnMouseReleased(e -> {
+            button.setScaleX(1.0);
+            button.setScaleY(1.0);
+        });
+
+        button.setOpacity(0.95);
+
+        return button;
+    }
+
+    private Pane createBasicButton(String iconPath) {
+        Pane button = createBasicButton();
+
+        ImageView icon = new ImageView(getClass().getResource(iconPath).toExternalForm());
+        icon.setFitHeight(button.getPrefHeight() - 10); // Adjust the margins as needed
+        icon.setFitWidth(button.getPrefWidth() - 10);
+
+        StackPane iconPane = new StackPane(icon);
+        StackPane.setAlignment(icon, Pos.CENTER);
+        StackPane.setMargin(icon, new Insets(5)); // Adjust the margins as needed
+
+        button.getChildren().add(iconPane);
+
+        return button;
+    }
+
+    private void drawButtons(HBox buttonContainer) {
+        // Align buttons to the left
+        buttonContainer.setAlignment(Pos.CENTER_LEFT);
+
+        double containerWidth = buttonContainer.getBoundsInParent().getWidth();
+        double containerHeight = buttonContainer.getBoundsInParent().getHeight();
+
+        // Set the position of the buttonContainer based on its size
+        AnchorPane.setTopAnchor(buttonContainer, graphView.getScene().getHeight() - containerHeight - 25);
+        AnchorPane.setLeftAnchor(buttonContainer, graphView.getScene().getWidth() - containerWidth - 25);
+    }
+
+    private void drawInfo(HBox infoContainer) {
+        // Align buttons to the left
+        double containerWidth = infoContainer.getBoundsInParent().getWidth();
+        double containerHeight = infoContainer.getBoundsInParent().getHeight();
+
+        // Set the position of the buttonContainer based on its size
+        AnchorPane.setTopAnchor(infoContainer, 5.0);
+        AnchorPane.setLeftAnchor(infoContainer, graphView.getScene().getWidth() / 2 - containerWidth / 2);
     }
 
     public void drawVertex(Vertex vertex) {
@@ -575,6 +738,22 @@ public class GraphViewManager implements Observer {
 
     public Map<Edge, Group> getEdgeGraphicsMap() {
         return edgeGraphicsMap;
+    }
+
+    public boolean isOptionContinuous() {
+        return isOptionContinuous;
+    }
+
+    public boolean isOptionDiscrete() {
+        return !isOptionContinuous;
+    }
+
+    public void setCostNashEquilibrium(double value) {
+        ne.set(value);
+    }
+
+    public void setCostOptimal(double value) {
+        opt.set(value);
     }
 
     @Override

@@ -17,27 +17,31 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class AppController {
+    private static AppController instance;
     private AppState state;
     private GraphManager graphManager;
     private GraphViewManager viewManager;
     private GraphActionManager actionManager;
     private Map<Integer, Vertex> printedVertices;
 
-    public AppController(Scene scene) {
+    private AppController(Scene scene) {
         this.state = new AppState();
         this.graphManager = new GraphManager();
         this.viewManager = new GraphViewManager(scene);
+
         this.actionManager = new GraphActionManager(graphManager, viewManager, state);
         this.printedVertices = new HashMap<>();
-        initializeEventHandlers(scene);
+
+        initializeEventHandlers();
     }
 
-    private void initializeEventHandlers(Scene scene) {
+    private void initializeEventHandlers() {
         Pane graphView = viewManager.getGraphView();
 
         graphView.setOnMouseClicked(this::handleMouseClicked);
@@ -45,7 +49,7 @@ public class AppController {
         graphView.setOnMouseReleased(this::handleMouseReleased);
         graphView.setOnMouseDragged(this::handleMouseDragged);
 
-        scene.addEventFilter(KeyEvent.KEY_PRESSED, this::handleKeyPressed);
+        graphView.getScene().addEventFilter(KeyEvent.KEY_PRESSED, this::handleKeyPressed);
     }
 
     public void drawGraph(List<Path> paths, int verticesNum) {
@@ -202,5 +206,47 @@ public class AppController {
         state = new AppState();
         viewManager.resetVertexSelection();
         viewManager.resetEdgeHighlight();
+    }
+
+    public void clearGraph() {
+        List<Vertex> verticesToDelete = new ArrayList<>(viewManager.getVertexGraphicsMap().keySet());
+        for (Vertex vertex : verticesToDelete) {
+            actionManager.removeVertex(vertex);
+        }
+        resetSelection();
+    }
+
+    public void runSimulationOptimum() {
+        viewManager.setCostOptimal(0.0);
+
+        // Implement simulation logic
+        System.out.println("Running simulation for Optimal Flow");
+        System.out.println(viewManager.isOptionContinuous());
+
+        viewManager.setCostOptimal(2.123);
+
+
+    }
+
+    public void runSimulationNashEquilibrium() {
+        viewManager.setCostNashEquilibrium(0.0);
+
+        // Implement simulation logic
+        System.out.println("Running simulation for Nash Flow");
+        System.out.println(viewManager.isOptionDiscrete());
+
+        viewManager.setCostNashEquilibrium(1.999);
+
+
+    }
+
+    public static AppController getInstance(Scene scene) {
+        if (instance == null) {
+            instance = new AppController(scene);
+        }
+        return instance;
+    }
+    public GraphViewManager getViewManager() {
+        return viewManager;
     }
 }

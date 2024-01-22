@@ -16,11 +16,13 @@ public class MainApplication extends Application {
     private static final double INITIAL_WIDTH = 800;
     private static final double INITIAL_HEIGHT = 600;
     private static final double ASPECT_RATIO = INITIAL_WIDTH / INITIAL_HEIGHT;
+    private boolean isWidthAdjusting = false;
+    private boolean isHeightAdjusting = false;
 
     @Override
-    public void start(Stage primaryStage) {
+        public void start(Stage primaryStage) {
         Scene scene = new Scene(new Pane(), INITIAL_WIDTH, INITIAL_HEIGHT);
-        AppController controller = new AppController(scene);
+        AppController controller = AppController.getInstance(scene);
 
         primaryStage.setScene(scene);
         primaryStage.setTitle("Game Theory Flow Simulation");
@@ -29,31 +31,47 @@ public class MainApplication extends Application {
         primaryStage.setMinWidth(INITIAL_WIDTH);
         primaryStage.setMinHeight(INITIAL_HEIGHT);
 
+        primaryStage.setWidth(INITIAL_WIDTH);
+        primaryStage.setHeight(INITIAL_HEIGHT);
+
         // Disable maximization
         primaryStage.maximizedProperty().addListener((observable, oldValue, newValue) -> {
             primaryStage.setMaximized(false);
         });
 
-        // Scale transformation
-        Scale scale = new Scale(1, 1, 0, 0);
-        scene.getRoot().getTransforms().add(scale);
-
         primaryStage.widthProperty().addListener((obs, oldVal, newVal) -> {
-            double newWidth = newVal.doubleValue();
-            double scaleFactor = newWidth / INITIAL_WIDTH;
-            scale.setX(scaleFactor);
-            scale.setY(scaleFactor);
-            primaryStage.setHeight(newWidth / ASPECT_RATIO); // Constant aspect ratio
+            if (!isHeightAdjusting) {
+                isWidthAdjusting = true;
+                double newHeight = newVal.doubleValue() / ASPECT_RATIO;
+                primaryStage.setHeight(newHeight);
+                isWidthAdjusting = false;
+            }
         });
 
         primaryStage.heightProperty().addListener((obs, oldVal, newVal) -> {
-            double newHeight = newVal.doubleValue();
-            double scaleFactor = newHeight / INITIAL_HEIGHT;
-            scale.setX(scaleFactor);
-            scale.setY(scaleFactor);
-            primaryStage.setWidth(newHeight * ASPECT_RATIO); // Constant aspect ratio
+            if (!isWidthAdjusting) {
+                isHeightAdjusting = true;
+                double newWidth = newVal.doubleValue() * ASPECT_RATIO;
+                primaryStage.setWidth(newWidth);
+                isHeightAdjusting = false;
+            }
         });
 
+        // Bind content size to scene size
+        Pane content = (Pane) scene.getRoot(); // Your main content pane
+        content.prefWidthProperty().bind(scene.widthProperty());
+        content.prefHeightProperty().bind(scene.heightProperty());
+
+        Scale scaleTransform = new Scale(1, 1, 0, 0);
+        content.getTransforms().add(scaleTransform);
+
+        content.layoutBoundsProperty().addListener((obs, oldBounds, newBounds) -> {
+            double scaleX = newBounds.getWidth() / INITIAL_WIDTH;
+            double scaleY = newBounds.getHeight() / INITIAL_HEIGHT;
+
+            scaleTransform.setX(scaleX * 1.02);
+            scaleTransform.setY(scaleY * 1.07);
+        });
 
         ConnectionMatrix test1 = new ConnectionMatrix(6);
         test1.addParameters(1.0, 0.0, 10.0, 0, 1);

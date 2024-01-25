@@ -34,6 +34,10 @@ public class GraphManager {
     public void removeEdge(Edge edge) {
         graph.removeEdge(edge);
     }
+
+    public FlowGraph getGraph() {
+        return graph;
+    }
 }
 
 

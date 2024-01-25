@@ -334,7 +334,7 @@ public class GraphViewManager implements Observer {
     }
 
     private void askForFlowCapacity(FlowVertex flowVertex) {
-        TextInputDialog capacityDialog = new TextInputDialog("0");
+        TextInputDialog capacityDialog = new TextInputDialog("1.0");
         capacityDialog.setTitle("Flow Capacity");
         capacityDialog.setHeaderText("Set Flow Capacity");
         capacityDialog.setContentText("Enter positive flow capacity:");
@@ -452,7 +452,7 @@ public class GraphViewManager implements Observer {
         return Color.color(interpolatedRed, interpolatedGreen, interpolatedBlue);
     }
 
-    private double calculateMaxFlow() {
+    public double calculateMaxFlow() {
         double maxFlow = 0;
 
         for (Vertex vertex : vertexGraphicsMap.keySet()) {
@@ -506,7 +506,7 @@ public class GraphViewManager implements Observer {
     }
 
     private Text createFlowText(FlowEdge flowEdge, Node node) {
-        Text flowText = new Text(String.valueOf(flowEdge.getCurrentFlow()));
+        Text flowText = new Text(String.format("%.2f", flowEdge.getCurrentFlow()));
         flowText.setId("FlowText");
 
         flowText.setFont(Font.font("Gill Sans MT Bold", FontWeight.BOLD, 10));

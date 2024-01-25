@@ -34,6 +34,51 @@ public class FlowEdgeTests {
         assertEquals(5.0, flowEdge.getCurrentCost(), 1e-6);
     }
 
+    @Test
+    public void testGetPotential() {
+        // flow = 3.0
+        // costFunction = x ^ 2
+        flowEdge.setCostFunction("x^2");
+        flowEdge.setCurrentFlow(3);
+        assertEquals(9.0, flowEdge.getPotentialCost(), 1e-1);
+    }
+
+    @Test
+    public void testGetPotential2() {
+        // flow = 3.0
+        // costFunction = 1
+        flowEdge.setCostFunction("1");
+        flowEdge.setCurrentFlow(3);
+        assertEquals(3.0, flowEdge.getPotentialCost(), 1e-1);
+    }
+
+    @Test
+    public void testGetMarginal() {
+        // flow = 3.0
+        // costFunction = x ^ 2 -> 3x2
+        flowEdge.setCostFunction("x^2");
+        flowEdge.setCurrentFlow(3);
+        assertEquals(27, flowEdge.getMarginalCost(), 1e-1);
+    }
+
+    @Test
+    public void testGetMarginal2() {
+        // flow = 3.0
+        // costFunction = 1
+        flowEdge.setCostFunction("1");
+        flowEdge.setCurrentFlow(3);
+        assertEquals(1.0, flowEdge.getMarginalCost(), 1e-1);
+    }
+
+    @Test
+    public void testGetMarginal3() {
+        // flow = 3.0
+        // costFunction = 1
+        flowEdge.setCostFunction("(3/2)*x");
+        flowEdge.setCurrentFlow(2.0);
+        assertEquals(6.0, flowEdge.getMarginalCost(), 1e-1);
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void testSetCostFunctionWithInvalidExpression() {
         // Attempt to set an invalid cost function, expecting an IllegalArgumentException

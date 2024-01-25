@@ -16,7 +16,6 @@ import org.apache.commons.math3.optim.nonlinear.scalar.ObjectiveFunction;
 
 
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -76,7 +75,8 @@ public class FlowGraphTest {
 
         List<FlowPath> paths = graph.findAllPaths();
 
-        double T = 1.0;
+        double T = graph.calculateAvailableFlow();
+
 
         MultivariateFunction function = point -> {
             double totalCost = 0.0;
@@ -139,7 +139,8 @@ public class FlowGraphTest {
 
         List<FlowPath> paths = graph.findAllPaths();
 
-        double T = 10.0;
+        double T = graph.calculateAvailableFlow();
+
 
         MultivariateFunction function = point -> {
             double totalCost = 0.0;
@@ -171,7 +172,7 @@ public class FlowGraphTest {
         double[] lowerBound = new double[paths.size() - 1]; // Lower bounds (all zeros)
         double[] upperBound = new double[paths.size() - 1]; // Upper bounds (optional, can be set to a large number or left unbounded)
         Arrays.fill(lowerBound, 0.0);
-        Arrays.fill(upperBound, Double.POSITIVE_INFINITY); // Or any large value that makes sense in your context
+        Arrays.fill(upperBound, Double.POSITIVE_INFINITY);
 
         BOBYQAOptimizer optimizer = new BOBYQAOptimizer(2 * (paths.size() - 1) + 1); // Number of interpolation points
         PointValuePair optimum = optimizer.optimize(
@@ -202,7 +203,8 @@ public class FlowGraphTest {
 
         List<FlowPath> paths = graph.findAllPaths();
 
-        double T = 1.0;
+        double T = graph.calculateAvailableFlow();
+
 
         MultivariateFunction function = point -> {
             double totalCost = 0;
@@ -226,7 +228,7 @@ public class FlowGraphTest {
 
             resetGraphFlows(paths);
 
-            totalCost += calculateResValue(costs, flows);
+            totalCost += calculateNashObjectiveValue(costs, flows);
 
             // Objective: Minimize the variance or dissimilarity of costs
             return totalCost;
@@ -269,40 +271,9 @@ public class FlowGraphTest {
 
         List<FlowPath> paths = graph.findAllPaths();
 
-        double T = 10.0;
+        double T = graph.calculateAvailableFlow();
 
-        MultivariateFunction function = point -> {
-            double totalCost = 0;
-            double penalty = 1000000;
-
-            double[] flows = calculateIntegerFlowsFromPoint(T, point);
-
-            if (Arrays.stream(flows).anyMatch(flow -> flow < -10e-4) || Arrays.stream(flows).sum() > T) {
-                return penalty; // Penalize invalid distributions
-            }
-
-
-            fillGraphFlows(paths, flows);
-
-            double[] costs = new double[flows.length];
-
-            for (int i = 0; i < flows.length; i++) {
-                for (FlowEdge edge : paths.get(i).getEdges()) {
-                    costs[i] += edge.getCurrentCost();
-                }
-            }
-
-            // Objective: Minimize the variance or dissimilarity of costs
-            // double averageCost = Arrays.stream(costs).average().orElse(0);
-            // totalCost = Arrays.stream(costs).map(cost -> Math.pow(cost - averageCost, 2)).sum();
-
-            resetGraphFlows(paths);
-
-            totalCost = calculateResValue(costs, flows);
-
-            // Objective: Minimize the variance or dissimilarity of costs
-            return totalCost;
-        };
+        MultivariateFunction function = objectiveFunction(T, paths, true, false);
 
         double[] lowerBound = new double[paths.size() - 1]; // Lower bounds (all zeros)
         double[] upperBound = new double[paths.size() - 1]; // Upper bounds (optional, can be set to a large number or left unbounded)
@@ -315,7 +286,6 @@ public class FlowGraphTest {
                 new MaxEval(1000),
                 new ObjectiveFunction(function),
                 GoalType.MINIMIZE,
-//              new InitialGuess(new double[paths.size() - 1]), // Initial guess for all flows except the last
                 new InitialGuess(new double[paths.size() - 1]), // Initial guess for all flows except the last
                 new SimpleBounds(lowerBound, upperBound) // Enforce the bounds
         );
@@ -340,7 +310,10 @@ public class FlowGraphTest {
         for (int i = 0; i < 4; i++) {
             FlowVertex vertex = new FlowVertex(i, i); // x, y can be arbitrary
             graph.addVertex(vertex);
-            if (i == 0) vertex.setSource(true); // First one as source
+            if (i == 0) {
+                vertex.setSource(true); // First one as source
+                vertex.setFlowCapacity(1.0);
+            }
             if (i == 3) vertex.setSink(true);   // Last one as sink
         }
 
@@ -360,7 +333,10 @@ public class FlowGraphTest {
         for (int i = 0; i < 4; i++) {
             FlowVertex vertex = new FlowVertex(i, i); // x, y can be arbitrary
             graph.addVertex(vertex);
-            if (i == 0) vertex.setSource(true); // First one as source
+            if (i == 0) {
+                vertex.setSource(true); // First one as source
+                vertex.setFlowCapacity(10.0);
+            }
             if (i == 3) vertex.setSink(true);   // Last one as sink
         }
 
@@ -380,7 +356,10 @@ public class FlowGraphTest {
         for (int i = 0; i < 6; i++) {
             FlowVertex vertex = new FlowVertex(i, i); // x, y can be arbitrary
             graph.addVertex(vertex);
-            if (i == 0) vertex.setSource(true); // First one as source
+            if (i == 0) {
+                vertex.setSource(true); // First one as source
+                vertex.setFlowCapacity(1.0);
+            }
             if (i == 4) vertex.setSink(true);   // Last one as sink
         }
 
@@ -405,7 +384,10 @@ public class FlowGraphTest {
         for (int i = 0; i < 6; i++) {
             FlowVertex vertex = new FlowVertex(i, i); // x, y can be arbitrary
             graph.addVertex(vertex);
-            if (i == 0) vertex.setSource(true); // First one as source
+            if (i == 0) {
+                vertex.setSource(true); // First one as source
+                vertex.setFlowCapacity(10.0);
+            }
             if (i == 4) vertex.setSink(true);   // Last one as sink
         }
 
@@ -511,38 +493,103 @@ public class FlowGraphTest {
         return result;
     }
 
-    public double calculateResValue(double[] costs, double[] flows) {
-        double totalCost = 0;
-        int usedPaths = 0;
-
-        double averageCost = totalCost / usedPaths;
+    public double calculateNashObjectiveValue(double[] costs, double[] flows) {
         double resValue = 0;
 
-        Integer[] indices = new Integer[costs.length];
-        for (int i = 0; i < indices.length; i++) {
-            indices[i] = i;
+        for (int i = 0; i < costs.length; i++) {
+            resValue += costs[i];
         }
 
-        // Sort the indices array based on the values in the costs array
-        Arrays.sort(indices, Comparator.comparingDouble(index -> costs[index]));
-
-        // Rearrange the costs and flows arrays based on the sorted indices
-        double[] sortedCosts = new double[costs.length];
-        double[] sortedFlows = new double[flows.length];
-        for (int i = 0; i < indices.length; i++) {
-            int index = indices[i];
-            sortedCosts[i] = costs[index];
-            sortedFlows[i] = flows[index];
-        }
-
-        double val = 0;
-        for (int i = 0; i < sortedCosts.length; i++) {
-            resValue += sortedFlows[i] * val;
-            val += 10;
-        }
+//        Integer[] indices = new Integer[costs.length];
+//        for (int i = 0; i < indices.length; i++) {
+//            indices[i] = i;
+//        }
+//
+//        // Sort the indices array based on the values in the costs array
+//        Arrays.sort(indices, Comparator.comparingDouble(index -> costs[index]));
+//
+//        // Rearrange the costs and flows arrays based on the sorted indices
+//        double[] sortedCosts = new double[costs.length];
+//        double[] sortedFlows = new double[flows.length];
+//        for (int i = 0; i < indices.length; i++) {
+//            int index = indices[i];
+//            sortedCosts[i] = costs[index];
+//            sortedFlows[i] = flows[index];
+//        }
+//
+//        double val = 0;
+//        for (int i = 0; i < sortedCosts.length; i++) {
+//            resValue += sortedFlows[i] * val;
+//            val += 10;
+//        }
 
         return resValue;
     }
+
+    public double calculateOptimumObjectiveValue(double[] costs, double[] flows) {
+        double totalCost = 0;
+
+        for (int i = 0; i < flows.length; i++) {
+                totalCost += flows[i] * costs[i];
+        }
+
+        return totalCost;
+    }
+
+    private MultivariateFunction objectiveFunction(double T, List<FlowPath> paths, boolean isDiscrete, boolean isGoalOptimum) {
+
+        MultivariateFunction function = point -> {
+            // Calculate the flows from the point
+            double[] flows;
+            if (isDiscrete) {
+                flows = calculateIntegerFlowsFromPoint(T, point);
+            }
+            else {
+                flows = calculateFlowsFromPoint(T, point);
+            }
+
+            // Calculate the current costs given the flows in the graph
+            fillGraphFlows(paths, flows);
+
+            double[] costs = new double[flows.length];
+
+            if (isGoalOptimum) {
+                for (int i = 0; i < flows.length; i++) {
+                    for (FlowEdge edge : paths.get(i).getEdges()) {
+                        costs[i] += edge.getCurrentCost();
+                    }
+                }
+            }
+            else {
+                for (int i = 0; i < flows.length; i++) {
+                    for (FlowEdge edge : paths.get(i).getEdges()) {
+                        costs[i] += edge.getPotentialCost();
+                    }
+                }
+            }
+
+            resetGraphFlows(paths);
+
+            // Calculate the objective function - punish for bad point choice, reward for good point choice
+            // Objective: Minimize the variance or dissimilarity of costs
+            double totalCost = 0;
+            double penalty = 100;
+
+            if (isGoalOptimum) {
+                totalCost = calculateOptimumObjectiveValue(costs, flows);
+            }
+            else {
+                totalCost = calculateNashObjectiveValue(costs, flows);
+            }
+
+            // Apply penalty for breaking the constraints
+            if (Arrays.stream(flows).anyMatch(flow -> flow < -10e-4) || Arrays.stream(flows).sum() > T) {
+                totalCost += penalty; // Penalize invalid distributions
+            }
+
+            return totalCost;
+        };
+
+        return function;
+    }
 }
-
-

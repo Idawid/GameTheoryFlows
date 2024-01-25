@@ -70,4 +70,18 @@ public class FlowGraph extends Graph {
                 .filter(FlowVertex::isSink)
                 .collect(Collectors.toList());
     }
+
+    public double calculateAvailableFlow() {
+        double maxFlow = 0;
+
+        for (Vertex vertex : vertices.values()) {
+            if (vertex instanceof FlowVertex) {
+                FlowVertex flowVertex = (FlowVertex) vertex;
+                maxFlow += flowVertex.getFlowCapacity();
+            }
+        }
+
+        // Default maxFlow is 1.0
+        return maxFlow == 0 ? 1.0 : maxFlow;
+    }
 }

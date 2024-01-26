@@ -19,6 +19,8 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import org.apache.commons.math3.analysis.MultivariateFunction;
 import org.apache.commons.math3.optim.*;
+import org.apache.commons.math3.optim.linear.LinearConstraint;
+import org.apache.commons.math3.optim.linear.Relationship;
 import org.apache.commons.math3.optim.nonlinear.scalar.GoalType;
 import org.apache.commons.math3.optim.nonlinear.scalar.ObjectiveFunction;
 import org.apache.commons.math3.optim.nonlinear.scalar.noderiv.BOBYQAOptimizer;
@@ -281,12 +283,16 @@ public class AppController {
         double[] lowerBound = new double[paths.size() - 1]; // Lower bounds (all zeros)
         double[] upperBound = new double[paths.size() - 1]; // Upper bounds (optional, can be set to a large number or left unbounded)
         Arrays.fill(lowerBound, 0.0);
-        Arrays.fill(upperBound, totalFlow);
+        Arrays.fill(upperBound, Double.POSITIVE_INFINITY);
 
         double[] initialGuess = new double[paths.size() - 1];
         for (int i = 0; i < initialGuess.length; i++) {
-            initialGuess[i] = (lowerBound[i] + upperBound[i]) / initialGuess.length;
+            initialGuess[i] = (0 + totalFlow) / (initialGuess.length + 1);
         }
+
+        double[] sumCoefficients = new double[paths.size() - 1];
+        Arrays.fill(sumCoefficients, 1);
+        LinearConstraint sumConstraint = new LinearConstraint(sumCoefficients, Relationship.LEQ, totalFlow);
 
         PointValuePair optimum = optimizer.optimize(
                 new MaxIter(10000),
@@ -336,14 +342,14 @@ public class AppController {
             if (isGoalOptimum) {
                 for (int i = 0; i < flows.length; i++) {
                     for (FlowEdge edge : paths.get(i).getEdges()) {
-                        costs[i] += edge.getMarginalCost();
+                        costs[i] += edge.getCurrentCost() * flows[i];
                     }
                 }
             }
             else {
                 for (int i = 0; i < flows.length; i++) {
                     for (FlowEdge edge : paths.get(i).getEdges()) {
-                        costs[i] += edge.getPotentialCost();
+                        costs[i] += edge.getCurrentCost();
                     }
                 }
             }
@@ -358,19 +364,23 @@ public class AppController {
             // Calculate the objective function - punish for bad point choice, reward for good point choice
             // Objective: Minimize the variance or dissimilarity of costs
             double totalCost = 0;
-            double penalty = 100;
-
             if (isGoalOptimum) {
-                totalCost = calculateOptimumObjectiveValue(costs, flows);
+                totalCost = calculateSumObjectiveValue(costs, flows);
             }
             else {
-                totalCost = calculateNashObjectiveValue(costs, flows);
+                totalCost = calculateDissimilaritiesObjectiveValue(costs, flows);
             }
 
             // Apply penalty for breaking the constraints
-            if (Arrays.stream(flows).anyMatch(flow -> flow < 0.0) || Arrays.stream(flows).sum() > T) {
-                totalCost *= 1.2; // Penalize invalid distributions
+            double penalty = 0;
+            if (Arrays.stream(flows).anyMatch(flow -> flow < 0.0)) {
+                penalty += Arrays.stream(flows).filter(flow -> flow < 0.0).map(flow -> Math.abs(flow * flow)).sum(); // Quadratic penalty for negative flows
             }
+            double sumFlows = Arrays.stream(flows).sum();
+            if (sumFlows > T) {
+                penalty += Math.abs((sumFlows - T)*(sumFlows - T)); // Quadratic penalty for exceeding T
+            }
+            totalCost += penalty;
 
             return totalCost;
         };
@@ -466,7 +476,7 @@ public class AppController {
         }
     }
 
-    public double calculateNashObjectiveValue(double[] costs, double[] flows) {
+    public double calculateSumObjectiveValue(double[] costs, double[] flows) {
         // minimizes the potential function
         double resValue = 0;
 
@@ -477,7 +487,7 @@ public class AppController {
         return resValue;
     }
 
-    public double calculateOptimumObjectiveValue(double[] costs, double[] flows) {
+    public double calculateDissimilaritiesObjectiveValue(double[] costs, double[] flows) {
         // minimizes the difference between the marginal costs
         double mean = Arrays.stream(costs).average().orElse(0);
         double sumOfSquaredDeviations = Arrays.stream(costs)

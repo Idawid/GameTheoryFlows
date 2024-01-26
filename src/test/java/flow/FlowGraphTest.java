@@ -6,6 +6,8 @@ import app.managers.graph.flow.FlowPath;
 import app.managers.graph.flow.FlowVertex;
 
 import org.apache.commons.math3.optim.*;
+import org.apache.commons.math3.optim.linear.LinearConstraint;
+import org.apache.commons.math3.optim.linear.Relationship;
 import org.apache.commons.math3.optim.nonlinear.scalar.noderiv.BOBYQAOptimizer;
 import org.apache.commons.math3.optim.nonlinear.scalar.noderiv.NelderMeadSimplex;
 import org.apache.commons.math3.optim.nonlinear.scalar.noderiv.SimplexOptimizer;
@@ -405,6 +407,72 @@ public class FlowGraphTest {
         return graph;
     }
 
+
+    private MultivariateFunction objectiveFunction(double T, List<FlowPath> paths, boolean isDiscrete, boolean isGoalOptimum) {
+
+        MultivariateFunction function = point -> {
+            // Calculate the flows from the point
+            double[] flows;
+            if (isDiscrete) {
+                flows = calculateIntegerFlowsFromPoint(T, point);
+            }
+            else {
+                flows = calculateFlowsFromPoint(T, point);
+            }
+
+            // Calculate the current costs given the flows in the graph
+            fillGraphFlows(paths, flows);
+
+            double[] costs = new double[flows.length];
+            if (isGoalOptimum) {
+                for (int i = 0; i < flows.length; i++) {
+                    for (FlowEdge edge : paths.get(i).getEdges()) {
+                        costs[i] += edge.getMarginalCost();
+                    }
+                }
+            }
+            else {
+                for (int i = 0; i < flows.length; i++) {
+                    for (FlowEdge edge : paths.get(i).getEdges()) {
+                        costs[i] += edge.getPotentialCost();
+                    }
+                }
+            }
+
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+            }
+
+            resetGraphFlows(paths);
+
+            // Calculate the objective function - punish for bad point choice, reward for good point choice
+            // Objective: Minimize the variance or dissimilarity of costs
+            double totalCost = 0;
+            if (isGoalOptimum) {
+                totalCost = calculateOptimumObjectiveValue(costs, flows);
+            }
+            else {
+                totalCost = calculateNashObjectiveValue(costs, flows);
+            }
+
+            // Apply penalty for breaking the constraints
+            double penalty = 0;
+            if (Arrays.stream(flows).anyMatch(flow -> flow < 0.0)) {
+                penalty += Arrays.stream(flows).filter(flow -> flow < 0.0).map(flow -> flow * flow).sum(); // Quadratic penalty for negative flows
+            }
+            double sumFlows = Arrays.stream(flows).sum();
+            if (sumFlows > T) {
+                penalty += (sumFlows - T) * (sumFlows - T); // Quadratic penalty for exceeding T
+            }
+            totalCost += penalty;
+
+            return totalCost;
+        };
+
+        return function;
+    }
+
     private void fillGraphFlows(List<FlowPath> paths, double[] flows) {
         resetGraphFlows(paths);
 
@@ -416,14 +484,22 @@ public class FlowGraphTest {
         }
     }
 
-    private void resetGraphFlows(List<FlowPath> paths) {
-        double zeroFlow = 0.0;
+    private double calculateTotalCost(List<FlowPath> paths, double[] flows) {
+        fillGraphFlows(paths, flows);
+        double totalFlow = Arrays.stream(flows).sum();
 
-        for (FlowPath path : paths) {
-            for (FlowEdge edge : path.getEdges()) {
-                edge.setCurrentFlow(zeroFlow);
+        double result = 0.0;
+        for (int i = 0; i < paths.size(); i++) {
+            if (totalFlow > 1.0) {
+                result += paths.get(i).getCurrentCost() * (flows[i] / totalFlow);
+            } else {
+                result += paths.get(i).getCurrentCost() * flows[i];
             }
         }
+
+        resetGraphFlows(paths);
+
+        return result;
     }
 
     private double[] calculateFlowsFromPoint(double totalFlow, double[] point) {
@@ -475,121 +551,35 @@ public class FlowGraphTest {
         flows[flows.length - 1] = totalFlow - sum;
     }
 
-    private double calculateTotalCost(List<FlowPath> paths, double[] flows) {
-        fillGraphFlows(paths, flows);
-        double totalFlow = Arrays.stream(flows).sum();
+    private void resetGraphFlows(List<FlowPath> paths) {
+        double zeroFlow = 0.0;
 
-        double result = 0.0;
-        for (int i = 0; i < paths.size(); i++) {
-            if (totalFlow > 1.0) {
-                result += paths.get(i).getCurrentCost() * (flows[i] / totalFlow);
-            } else {
-                result += paths.get(i).getCurrentCost() * flows[i];
+        for (FlowPath path : paths) {
+            for (FlowEdge edge : path.getEdges()) {
+                edge.setCurrentFlow(zeroFlow);
             }
         }
-
-        resetGraphFlows(paths);
-
-        return result;
     }
 
     public double calculateNashObjectiveValue(double[] costs, double[] flows) {
+        // minimizes the potential function
         double resValue = 0;
 
         for (int i = 0; i < costs.length; i++) {
             resValue += costs[i];
         }
 
-//        Integer[] indices = new Integer[costs.length];
-//        for (int i = 0; i < indices.length; i++) {
-//            indices[i] = i;
-//        }
-//
-//        // Sort the indices array based on the values in the costs array
-//        Arrays.sort(indices, Comparator.comparingDouble(index -> costs[index]));
-//
-//        // Rearrange the costs and flows arrays based on the sorted indices
-//        double[] sortedCosts = new double[costs.length];
-//        double[] sortedFlows = new double[flows.length];
-//        for (int i = 0; i < indices.length; i++) {
-//            int index = indices[i];
-//            sortedCosts[i] = costs[index];
-//            sortedFlows[i] = flows[index];
-//        }
-//
-//        double val = 0;
-//        for (int i = 0; i < sortedCosts.length; i++) {
-//            resValue += sortedFlows[i] * val;
-//            val += 10;
-//        }
-
         return resValue;
     }
 
     public double calculateOptimumObjectiveValue(double[] costs, double[] flows) {
-        double totalCost = 0;
+        // minimizes the difference between the marginal costs
+        double mean = Arrays.stream(costs).average().orElse(0);
+        double sumOfSquaredDeviations = Arrays.stream(costs)
+                .map(cost -> Math.pow(cost - mean, 2))
+                .sum();
 
-        for (int i = 0; i < flows.length; i++) {
-                totalCost += flows[i] * costs[i];
-        }
-
-        return totalCost;
-    }
-
-    private MultivariateFunction objectiveFunction(double T, List<FlowPath> paths, boolean isDiscrete, boolean isGoalOptimum) {
-
-        MultivariateFunction function = point -> {
-            // Calculate the flows from the point
-            double[] flows;
-            if (isDiscrete) {
-                flows = calculateIntegerFlowsFromPoint(T, point);
-            }
-            else {
-                flows = calculateFlowsFromPoint(T, point);
-            }
-
-            // Calculate the current costs given the flows in the graph
-            fillGraphFlows(paths, flows);
-
-            double[] costs = new double[flows.length];
-
-            if (isGoalOptimum) {
-                for (int i = 0; i < flows.length; i++) {
-                    for (FlowEdge edge : paths.get(i).getEdges()) {
-                        costs[i] += edge.getCurrentCost();
-                    }
-                }
-            }
-            else {
-                for (int i = 0; i < flows.length; i++) {
-                    for (FlowEdge edge : paths.get(i).getEdges()) {
-                        costs[i] += edge.getPotentialCost();
-                    }
-                }
-            }
-
-            resetGraphFlows(paths);
-
-            // Calculate the objective function - punish for bad point choice, reward for good point choice
-            // Objective: Minimize the variance or dissimilarity of costs
-            double totalCost = 0;
-            double penalty = 100;
-
-            if (isGoalOptimum) {
-                totalCost = calculateOptimumObjectiveValue(costs, flows);
-            }
-            else {
-                totalCost = calculateNashObjectiveValue(costs, flows);
-            }
-
-            // Apply penalty for breaking the constraints
-            if (Arrays.stream(flows).anyMatch(flow -> flow < -10e-4) || Arrays.stream(flows).sum() > T) {
-                totalCost += penalty; // Penalize invalid distributions
-            }
-
-            return totalCost;
-        };
-
-        return function;
+        // The objective is to minimize this sum
+        return sumOfSquaredDeviations;
     }
 }

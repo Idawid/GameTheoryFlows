@@ -78,10 +78,10 @@ public class GraphViewManager implements Observer {
 
     private void createTextInfoPOA() {
         Text neText = new Text();
-        neText.textProperty().bind(ne.asString("%.1f"));
+        neText.textProperty().bind(ne.asString("%.2f"));
 
         Text optText = new Text();
-        optText.textProperty().bind(opt.asString("%.1f"));
+        optText.textProperty().bind(opt.asString("%.2f"));
 
         DoubleBinding calculation = new DoubleBinding() {
             {
@@ -95,7 +95,7 @@ public class GraphViewManager implements Observer {
         };
 
         Text calculationText = new Text();
-        calculationText.textProperty().bind(calculation.asString("%.1f"));
+        calculationText.textProperty().bind(calculation.asString("%.2f"));
 
         HBox hbox = new HBox(new Text("PoA = "), neText, new Text(" / "), optText, new Text(" = "), calculationText);
 

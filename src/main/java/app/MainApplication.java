@@ -34,11 +34,6 @@ public class MainApplication extends Application {
         primaryStage.setWidth(INITIAL_WIDTH);
         primaryStage.setHeight(INITIAL_HEIGHT);
 
-        // Disable maximization
-        primaryStage.maximizedProperty().addListener((observable, oldValue, newValue) -> {
-            primaryStage.setMaximized(false);
-        });
-
         primaryStage.widthProperty().addListener((obs, oldVal, newVal) -> {
             if (!isHeightAdjusting) {
                 isWidthAdjusting = true;
@@ -73,25 +68,26 @@ public class MainApplication extends Application {
             scaleTransform.setY(scaleY * 1.07);
         });
 
-        ConnectionMatrix test1 = new ConnectionMatrix(6);
-        test1.addParameters(1.0, 0.0, 10.0, 0, 1);
-        test1.addParameters(2.0, 2.0, 12.0, 0, 2);
-        test1.addParameters(1.2, 1.0, 0.0, 0, 3);
-        test1.addParameters(1.2, 1.0, 1.1, 1, 2);
-        test1.addParameters(1.1, 2.0, 1.2, 1, 4);
-        test1.addParameters(0.0, 2.0, 0.0, 2, 4);
-        test1.addParameters(0.0, 4.0, 0.0, 4, 5);
-        test1.addParameters(2.0, 0.0, 0.0, 3, 5);
-        test1.getAllPaths();
-        for(Path p : test1.getPaths()){
-            System.out.println(p.getRoute());
-        }
-        System.out.println("------------");
-        test1.randomPayloadDiscrete(100);
-        while(test1.simulationStepDiscrete()) {
+//        ConnectionMatrix test1 = new ConnectionMatrix(6);
+//        test1.addParameters(1.0, 0.0, 10.0, 0, 1);
+//        test1.addParameters(2.0, 2.0, 12.0, 0, 2);
+//        test1.addParameters(1.2, 1.0, 0.0, 0, 3);
+//        test1.addParameters(1.2, 1.0, 1.1, 1, 2);
+//        test1.addParameters(1.1, 2.0, 1.2, 1, 4);
+//        test1.addParameters(0.0, 2.0, 0.0, 2, 4);
+//        test1.addParameters(0.0, 4.0, 0.0, 4, 5);
+//        test1.addParameters(2.0, 0.0, 0.0, 3, 5);
+//        test1.getAllPaths();
+//        for(Path p : test1.getPaths()){
+//            System.out.println(p.getRoute());
+//        }
+//        System.out.println("------------");
+//        test1.randomPayloadDiscrete(100);
+//        while(test1.simulationStepDiscrete()) {
+//
+//        }
+//        controller.drawGraph(test1.getPaths(),test1.getNumberOfVertices());
 
-        }
-        controller.drawGraph(test1.getPaths(),test1.getNumberOfVertices());
     }
 
     public static void main(String[] args) {

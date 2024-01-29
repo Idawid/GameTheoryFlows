@@ -22,7 +22,7 @@ public class SelectVertexAction implements Action {
 
     @Override
     public void undo() {
-        viewManager.resetVertexSelection();
+        viewManager.resetVertexHighlight();
     }
 }
 

@@ -12,7 +12,6 @@ import javafx.application.Platform;
 import javafx.beans.binding.DoubleBinding;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleDoubleProperty;
-import javafx.geometry.HPos;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
@@ -24,6 +23,10 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.Tooltip;
+import javafx.scene.effect.Blend;
+import javafx.scene.effect.BlendMode;
+import javafx.scene.effect.ColorInput;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
@@ -48,7 +51,7 @@ public class GraphViewManager implements Observer {
     private Map<Edge, Group> edgeGraphicsMap;
     private final double gridSpacing = 20;
     private Line tempEdgeLine;
-    private boolean isOptionContinuous = false;
+    private boolean isOptionContinuous = true;
     private DoubleProperty ne = new SimpleDoubleProperty();
     private DoubleProperty opt = new SimpleDoubleProperty();
 
@@ -142,39 +145,69 @@ public class GraphViewManager implements Observer {
     }
 
     private void createGUIButtons() {
-        // Create buttons and add event handlers
-        Pane buttonClear = createBasicButton("/delete-icon.png");
+        // Return Home button
+        Pane buttonReturnHome = createBasicButton("/home-icon.png", Color.BLACK);
+        buttonReturnHome.setOnMouseClicked(e -> AppController.getInstance(graphView.getScene()).returnHome());
+
+        // Clear graph button
+        Pane buttonClear = createBasicButton("/delete-icon.png", Color.BLACK);
         buttonClear.setOnMouseClicked(e -> AppController.getInstance(graphView.getScene()).clearGraph());
 
-        Pane buttonRunOpt = createBasicButton("/run-optimal.png");
+        // Run Optimum Simulation
+        Pane buttonRunOpt = createBasicButton("/play-icon.png", Color.FORESTGREEN);
+        addSecondaryIcon(buttonRunOpt, "/run-optimal.png", Color.BLACK);
         buttonRunOpt.setOnMouseClicked(e -> AppController.getInstance(graphView.getScene()).runSimulationOptimum());
 
-        Pane buttonRunNE = createBasicButton("/run-nash-equilibrium.png");
+        // Run NE Simulation
+        Pane buttonRunNE = createBasicButton("/play-icon.png", Color.FORESTGREEN);
+        addSecondaryIcon(buttonRunNE, "/run-nash-equilibrium.png", Color.BLACK);
         buttonRunNE.setOnMouseClicked(e -> AppController.getInstance(graphView.getScene()).runSimulationNashEquilibrium());
 
+        // Discrete Continuous Option
         Pane buttonDCOption = createBasicButton();
-        Label letterD = new Label("D");
-        letterD.setStyle("-fx-text-fill: black;");
-        letterD.setFont(Font.font("Gill Sans MT Bold", FontWeight.BOLD, 36));
-        letterD.setPrefHeight(buttonDCOption.getPrefHeight());
-        letterD.setPrefWidth(buttonDCOption.getPrefWidth());
-        letterD.setAlignment(Pos.TOP_CENTER);
-        letterD.setPadding(new Insets(-1));
-        StackPane.setMargin(letterD, new Insets(15));
-        buttonDCOption.getChildren().add(letterD);
+        buttonDCOption.setStyle("-fx-background-color: rgba(150, 150, 150, 0.7); -fx-border-color: black; -fx-border-radius: 5; -fx-border-width: 2px; -fx-padding: 5;");
+        buttonDCOption.setOnMouseEntered(e -> buttonDCOption.setStyle("-fx-background-color: rgba(130, 130, 130, 0.7); -fx-border-color: black; -fx-border-radius: 5; -fx-border-width: 2px; -fx-padding: 5;"));
+        buttonDCOption.setOnMouseExited(e -> buttonDCOption.setStyle("-fx-background-color: rgba(150, 150, 150, 0.7); -fx-border-color: black; -fx-border-radius: 5; -fx-border-width: 2px; -fx-padding: 5;"));
+
+        Label letterC = new Label("C");
+        letterC.setStyle("-fx-text-fill: black;");
+        letterC.setFont(Font.font("Gill Sans MT Bold", FontWeight.BOLD, 36));
+        letterC.setPrefHeight(buttonDCOption.getPrefHeight());
+        letterC.setPrefWidth(buttonDCOption.getPrefWidth());
+        letterC.setAlignment(Pos.TOP_CENTER);
+        letterC.setPadding(new Insets(-1));
+        StackPane.setMargin(letterC, new Insets(15));
+        buttonDCOption.getChildren().add(letterC);
 
         buttonDCOption.setOnMouseClicked(e -> changeOption(buttonDCOption));
 
         // Create a container (HBox) for buttons
         HBox buttonContainer = new HBox();
         buttonContainer.setSpacing(10); // Adjust spacing between buttons as needed
-        buttonContainer.getChildren().addAll(buttonClear, buttonRunOpt, buttonRunNE, buttonDCOption);
+        buttonContainer.getChildren().addAll(buttonReturnHome, buttonClear, buttonRunOpt, buttonRunNE, buttonDCOption);
 
         // Add buttons to the GUI layer
         guiLayer.getChildren().addAll(buttonContainer);
 
         // Draw after the scene rendering
         Platform.runLater(() -> drawButtons(buttonContainer));
+    }
+
+    private void addTooltip(Pane button, String tooltipText) {
+        Tooltip tooltip = new Tooltip(tooltipText);
+        Tooltip.install(button, tooltip);
+    }
+
+    private void addSecondaryIcon(Pane button, String iconPath, Color color) {
+        // Set secondary icon
+        ImageView icon = new ImageView(getClass().getResource(iconPath).toExternalForm());
+        icon.setFitHeight(button.getPrefHeight() - 20); // Adjust the margins as needed
+        icon.setFitWidth(button.getPrefWidth() - 20);
+        icon.setOpacity(0.95);
+        StackPane iconPaneRunOpt = new StackPane(icon);
+        StackPane.setAlignment(icon, Pos.CENTER);
+        StackPane.setMargin(icon, new Insets(15)); // Adjust the margins as needed
+        button.getChildren().add(iconPaneRunOpt);
     }
 
     private void changeOption(Pane buttonDCOption) {
@@ -216,12 +249,26 @@ public class GraphViewManager implements Observer {
         return button;
     }
 
-    private Pane createBasicButton(String iconPath) {
+    private Pane createBasicButton(String iconPath, Color color) {
         Pane button = createBasicButton();
 
         ImageView icon = new ImageView(getClass().getResource(iconPath).toExternalForm());
         icon.setFitHeight(button.getPrefHeight() - 10); // Adjust the margins as needed
         icon.setFitWidth(button.getPrefWidth() - 10);
+
+        // Create a ColorInput
+        ColorInput colorInput = new ColorInput();
+        colorInput.setPaint(color); // Change to the color you want
+        colorInput.setWidth(icon.getImage().getWidth());
+        colorInput.setHeight(icon.getImage().getHeight());
+
+        // Create a Blend
+        Blend blend = new Blend();
+        blend.setMode(BlendMode.SRC_ATOP);
+        blend.setTopInput(colorInput);
+
+        // Apply the blend to the ImageView
+        icon.setEffect(blend);
 
         StackPane iconPane = new StackPane(icon);
         StackPane.setAlignment(icon, Pos.CENTER);
@@ -240,7 +287,7 @@ public class GraphViewManager implements Observer {
         double containerHeight = buttonContainer.getBoundsInParent().getHeight();
 
         // Set the position of the buttonContainer based on its size
-        AnchorPane.setTopAnchor(buttonContainer, graphView.getScene().getHeight() - containerHeight - 25);
+        AnchorPane.setTopAnchor(buttonContainer, graphView.getScene().getHeight() - containerHeight + 25);
         AnchorPane.setLeftAnchor(buttonContainer, graphView.getScene().getWidth() - containerWidth - 25);
     }
 
@@ -567,7 +614,11 @@ public class GraphViewManager implements Observer {
     }
 
     public void highlightVertex(Vertex vertex) {
-        resetVertexSelection();
+        if (vertex == null) {
+            return;
+        }
+
+        resetVertexHighlight();
 
         // Highlight the selected vertex
         Group vertexGroup = vertexGraphicsMap.get(vertex);
@@ -582,6 +633,10 @@ public class GraphViewManager implements Observer {
     }
 
     public void highlightEdge(Edge edge) {
+        if (edge == null) {
+            return;
+        }
+
         resetEdgeHighlight();
 
         Group edgeGroup = edgeGraphicsMap.get(edge);
@@ -601,7 +656,7 @@ public class GraphViewManager implements Observer {
         }
     }
 
-    public void resetVertexSelection() {
+    public void resetVertexHighlight() {
         for (Group group : vertexGraphicsMap.values()) {
             group.setEffect(null);
         }
@@ -657,27 +712,19 @@ public class GraphViewManager implements Observer {
         }
 
         // Check if an edge is clicked
-        for (Map.Entry<Edge, Group> entry : getEdgeGraphicsMap().entrySet()) {
-            Edge edge = entry.getKey();
-            Group edgeGroup = entry.getValue();
-
-            for (Node node : edgeGroup.getChildren()) {
-                if (node instanceof Line) {
-                    Line line = (Line) node;
-                    if (isNearEdge(line, x, y, selectionThreshold)) {
-                        return new SelectionResult(SelectionType.EDGE, edge);
-                    }
-                }
+        for (Edge edge : edgeGraphicsMap.keySet()) {
+            if (isNearEdge(edge, x, y, selectionThreshold)) {
+                return new SelectionResult(SelectionType.EDGE, edge);
             }
         }
         return new SelectionResult(SelectionType.NONE, null);
     }
 
-    private boolean isNearEdge(Line line, double x, double y, double threshold) {
-        double x1 = line.getStartX();
-        double y1 = line.getStartY();
-        double x2 = line.getEndX();
-        double y2 = line.getEndY();
+    private boolean isNearEdge(Edge edge, double x, double y, double threshold) {
+        double x1 = edge.getFrom().getX();
+        double y1 = edge.getFrom().getY();
+        double x2 = edge.getTo().getX();
+        double y2 = edge.getTo().getY();
 
         double dx = x2 - x1;
         double dy = y2 - y1;
@@ -729,9 +776,11 @@ public class GraphViewManager implements Observer {
     public Pane getVertexLayer() {
         return vertexLayer;
     }
+
     public Pane getEdgeLayer() {
         return edgeLayer;
     }
+
     public Map<Vertex, Group> getVertexGraphicsMap() {
         return vertexGraphicsMap;
     }
@@ -759,12 +808,11 @@ public class GraphViewManager implements Observer {
     @Override
     public void update(Object subject) {
         if (subject instanceof FlowEdge) {
-            undrawEdge((FlowEdge)subject);
-            drawEdge((FlowEdge)subject);
-        }
-        else if (subject instanceof FlowVertex) {
-            undrawVertexOnly((FlowVertex)subject);
-            drawVertex((FlowVertex)subject);
+            undrawEdge((FlowEdge) subject);
+            drawEdge((FlowEdge) subject);
+        } else if (subject instanceof FlowVertex) {
+            undrawVertexOnly((FlowVertex) subject);
+            drawVertex((FlowVertex) subject);
 
             // We've changed the Source vertex
             if (((FlowVertex) subject).isSource()) {

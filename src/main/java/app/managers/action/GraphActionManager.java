@@ -100,6 +100,11 @@ public class GraphActionManager {
         performAction(selectEdgeAction);
     }
 
+    public void clearGraph() {
+        ClearGraphAction clearGraphAction = new ClearGraphAction(graphManager, viewManager, state.getSelectedVertex(), state.getSelectedEdge());
+        performAction(clearGraphAction);
+    }
+
     public void addEdge(Vertex vertex, Vertex vertex1) {
         addEdge(new FlowEdge(vertex, vertex1, "1"));
     }

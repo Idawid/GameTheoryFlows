@@ -11,11 +11,9 @@ import app.managers.view.GraphViewManager;
 import app.managers.action.GraphActionManager;
 import app.managers.view.common.SelectionResult;
 import app.managers.view.common.SelectionType;
+import javafx.geometry.Point2D;
 import javafx.scene.Scene;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyEvent;
-import javafx.scene.input.MouseButton;
-import javafx.scene.input.MouseEvent;
+import javafx.scene.input.*;
 import javafx.scene.layout.Pane;
 import org.apache.commons.math3.analysis.MultivariateFunction;
 import org.apache.commons.math3.optim.*;
@@ -34,6 +32,9 @@ public class AppController {
     private GraphViewManager viewManager;
     private GraphActionManager actionManager;
     private Map<Integer, Vertex> printedVertices;
+    private double initialX;
+    private double initialY;
+    private boolean ctrlKeyPressed = false;
 
     private AppController(Scene scene) {
         this.state = new AppState();
@@ -53,8 +54,10 @@ public class AppController {
         graphView.setOnMousePressed(this::handleMousePressed);
         graphView.setOnMouseReleased(this::handleMouseReleased);
         graphView.setOnMouseDragged(this::handleMouseDragged);
+        graphView.setOnScroll(this::handleScroll);
 
         graphView.getScene().addEventFilter(KeyEvent.KEY_PRESSED, this::handleKeyPressed);
+        graphView.getScene().addEventFilter(KeyEvent.KEY_RELEASED, this::handleKeyReleased);
     }
 
     public void drawGraph(List<Path> paths, int verticesNum) {
@@ -111,20 +114,6 @@ public class AppController {
     }
 
     private void handleMouseClicked(MouseEvent event) {
-        if (event.getButton() == MouseButton.SECONDARY && state.getSelectionType() == SelectionType.NONE) {
-            FlowVertex newVertex = new FlowVertex(event.getX(), event.getY());
-            newVertex.addObserver(viewManager);
-            actionManager.addVertex(newVertex);
-        } else if (event.getButton() == MouseButton.PRIMARY) {
-            // Edge / Vertex selection
-            if (event.isShiftDown()) {
-                double SELECTION_THRESHOLD = 30.0;
-                handleClickSelection(event.getX(), event.getY(), SELECTION_THRESHOLD);
-            } else if (event.getClickCount() >= 2) {
-                double SELECTION_THRESHOLD = 80.0; // bigger for double click
-                handleClickSelection(event.getX(), event.getY(), SELECTION_THRESHOLD);
-            }
-        }
     }
 
     private void handleClickSelection(double x, double y, double selectionThreshold) {
@@ -132,42 +121,80 @@ public class AppController {
 
         if (selection.getType() == SelectionType.VERTEX) {
             Vertex selectedVertex = (Vertex) selection.getSelectedObject();
-            actionManager.selectVertex(selectedVertex);
             state.setSelectedVertex(selectedVertex);
+            actionManager.selectVertex(selectedVertex);
         } else if (selection.getType() == SelectionType.EDGE) {
             Edge selectedEdge = (Edge) selection.getSelectedObject();
-            actionManager.selectEdge(selectedEdge);
             state.setSelectedEdge(selectedEdge);
+            actionManager.selectEdge(selectedEdge);
         }
 
         state.setSelectionType(selection.getType());
     }
 
     private void handleMousePressed(MouseEvent event) {
+        Pane vertexView = viewManager.getVertexLayer();
+        double adjustedX = getAdjustedX(event, vertexView);
+        double adjustedY = getAdjustedY(event, vertexView);
+
+        // Drag
+        if (event.isControlDown() && event.isPrimaryButtonDown()) {
+            initialX = event.getSceneX();
+            initialY = event.getSceneY();
+            return;
+        }
+
+        // Vertex adding / selection
+        if (event.getButton() == MouseButton.SECONDARY && state.getSelectionType() == SelectionType.NONE) {
+            FlowVertex newVertex = new FlowVertex(adjustedX, adjustedY);
+            newVertex.addObserver(viewManager);
+            actionManager.addVertex(newVertex);
+        } else if (event.getButton() == MouseButton.PRIMARY) {
+            // Edge / Vertex selection
+            if (event.isShiftDown()) {
+                double SELECTION_THRESHOLD = 30.0;
+                handleClickSelection(adjustedX, adjustedY, SELECTION_THRESHOLD);
+                return;
+            } else if (event.getClickCount() >= 2) {
+                double SELECTION_THRESHOLD = 80.0; // bigger for double click
+                handleClickSelection(adjustedX, adjustedY, SELECTION_THRESHOLD);
+                return;
+            }
+        }
+
+        // Selection
         if (event.getButton() == MouseButton.PRIMARY) {
             double SELECTION_THRESHOLD = 15.0;
-            SelectionResult selection = viewManager.selectElementAt(event.getX(), event.getY(), SELECTION_THRESHOLD);
+            SelectionResult selection = viewManager.selectElementAt(adjustedX, adjustedY, SELECTION_THRESHOLD);
 
             if (selection.getType() == SelectionType.VERTEX) {
                 Vertex selectedVertex = (Vertex) selection.getSelectedObject();
                 state.setSelectedVertex(selectedVertex);
-                viewManager.startDrawingEdge(selectedVertex.getX(), selectedVertex.getY());
+                viewManager.startDrawingEdge(adjustedX, adjustedY);
                 // You might want to visually indicate that this vertex is selected for edge creation
                 viewManager.highlightVertex(selectedVertex);
             }
 
             if (state.getSelectedVertex() != null) {
-                viewManager.updateDrawingEdge(event.getX(), event.getY());
+                viewManager.updateDrawingEdge(adjustedX, adjustedY);
             }
         }
     }
 
     private void handleMouseReleased(MouseEvent event) {
+        Pane vertexView = viewManager.getVertexLayer();
+        double adjustedX = getAdjustedX(event, vertexView);
+        double adjustedY = getAdjustedY(event, vertexView);
+
         viewManager.stopDrawingEdge();
+
+        if (event.getButton() == MouseButton.PRIMARY && event.isShiftDown()) {
+            return;
+        }
 
         if (event.getButton() == MouseButton.PRIMARY && state.getSelectedVertex() != null) {
             double SELECTION_THRESHOLD = 20.0;
-            SelectionResult selection = viewManager.selectElementAt(event.getX(), event.getY(), SELECTION_THRESHOLD);
+            SelectionResult selection = viewManager.selectElementAt(adjustedX, adjustedY, SELECTION_THRESHOLD);
 
             if (selection.getType() == SelectionType.VERTEX) {
                 Vertex endingVertex = (Vertex) selection.getSelectedObject();
@@ -184,9 +211,56 @@ public class AppController {
     }
 
     private void handleMouseDragged(MouseEvent event) {
+        Pane vertexView = viewManager.getVertexLayer();
+        double adjustedX = getAdjustedX(event, vertexView);
+        double adjustedY = getAdjustedY(event, vertexView);
+
         if (state.getSelectedVertex() != null) {
-            viewManager.updateDrawingEdge(event.getX(), event.getY());
+            viewManager.updateDrawingEdge(adjustedX, adjustedY);
         }
+
+        if (event.isControlDown() && event.getButton() == MouseButton.PRIMARY) {
+            double deltaX = event.getSceneX() - initialX;
+            double deltaY = event.getSceneY() - initialY;
+
+            // Update the graph view position
+            Pane vertexLayer = viewManager.getVertexLayer();
+            vertexLayer.setTranslateX(vertexLayer.getTranslateX() + deltaX);
+            vertexLayer.setTranslateY(vertexLayer.getTranslateY() + deltaY);
+
+            Pane edgeLayer = viewManager.getEdgeLayer();
+            edgeLayer.setTranslateX(edgeLayer.getTranslateX() + deltaX);
+            edgeLayer.setTranslateY(edgeLayer.getTranslateY() + deltaY);
+
+            initialX = event.getSceneX();
+            initialY = event.getSceneY();
+        }
+    }
+
+    private void handleScroll(ScrollEvent event) {
+//        Pane vertexView = viewManager.getVertexLayer();
+//        Pane edgeView = viewManager.getEdgeLayer();
+//
+//        double adjustedX = getAdjustedX(event, vertexView);
+//        double adjustedY = getAdjustedY(event, vertexView);
+//
+//        double zoomFactor = 1.05;
+//        double deltaY = event.getDeltaY();
+//
+//        if (deltaY < 0) {
+//            // Scrolling down, zoom out
+//            zoomFactor = 1 / zoomFactor;
+//        }
+//
+//        // Set zoom for vertex layer
+//        vertexView.setScaleX(vertexView.getScaleX() * zoomFactor);
+//        vertexView.setScaleY(vertexView.getScaleY() * zoomFactor);
+//
+//        // Set zoom for edge layer
+//        edgeView.setScaleX(edgeView.getScaleX() * zoomFactor);
+//        edgeView.setScaleY(edgeView.getScaleY() * zoomFactor);
+//
+//        event.consume();
     }
 
     private void handleKeyPressed(KeyEvent event) {
@@ -205,20 +279,70 @@ public class AppController {
         } else if (event.isControlDown() && event.getCode() == KeyCode.Y) {
             actionManager.redo();
         }
+
+        if (event.getCode() == KeyCode.CONTROL) {
+            ctrlKeyPressed = true;
+        }
+    }
+
+    private void handleKeyReleased(KeyEvent event) {
+        if (event.getCode() == KeyCode.CONTROL) {
+            ctrlKeyPressed = false;
+        }
     }
 
     private void resetSelection() {
         state = new AppState();
-        viewManager.resetVertexSelection();
+        viewManager.resetVertexHighlight();
         viewManager.resetEdgeHighlight();
     }
 
     public void clearGraph() {
-        List<Vertex> verticesToDelete = new ArrayList<>(viewManager.getVertexGraphicsMap().keySet());
-        for (Vertex vertex : verticesToDelete) {
-            actionManager.removeVertex(vertex);
-        }
+        actionManager.clearGraph();
         resetSelection();
+    }
+
+    private double getAdjustedX(MouseEvent event, Pane zoomedPane) {
+        // Convert the event's scene coordinates to the coordinates in the pane's parent
+        Point2D pointInScene = new Point2D(event.getSceneX(), event.getSceneY());
+        Point2D pointInPaneParent = zoomedPane.getParent().sceneToLocal(pointInScene);
+
+        // Adjust for the zooming and translation applied to the zoomedPane
+        double adjustedX = (pointInPaneParent.getX() - zoomedPane.getTranslateX()) / zoomedPane.getScaleX();
+        return adjustedX;
+    }
+
+    private double getAdjustedY(MouseEvent event, Pane zoomedPane) {
+        // Convert the event's scene coordinates to the coordinates in the pane's parent
+        Point2D pointInScene = new Point2D(event.getSceneX(), event.getSceneY());
+        Point2D pointInPaneParent = zoomedPane.getParent().sceneToLocal(pointInScene);
+
+        // Adjust for the zooming and translation applied to the zoomedPane
+        double adjustedY = (pointInPaneParent.getY() - zoomedPane.getTranslateY()) / zoomedPane.getScaleY();
+        return adjustedY;
+    }
+
+    private double getAdjustedX(ScrollEvent event, Pane view) {
+        double zoomScale = view.getScaleX(); // Assuming uniform scaling for X and Y
+        double adjustedX = (event.getX() - view.getTranslateX()) / zoomScale;
+        return adjustedX;
+    }
+
+    private double getAdjustedY(ScrollEvent event, Pane view) {
+        double zoomScale = view.getScaleY(); // Assuming uniform scaling for X and Y
+        double adjustedY = (event.getY() - view.getTranslateY()) / zoomScale;
+        return adjustedY;
+    }
+
+    public void returnHome() {
+        Pane vertexView = viewManager.getVertexLayer();
+        Pane edgeView = viewManager.getEdgeLayer();
+
+        // Reset the translation to the initial position (usually 0,0)
+        vertexView.setTranslateX(0);
+        vertexView.setTranslateY(0);
+        edgeView.setTranslateX(0);
+        edgeView.setTranslateY(0);
     }
 
     public void runSimulationOptimum() {

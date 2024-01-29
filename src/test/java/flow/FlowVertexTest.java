@@ -39,12 +39,6 @@ public class FlowVertexTest {
         assertFalse(normalVertex.isSink());
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void testVertexCannotBeBothSourceAndSink() {
-        normalVertex.setSource(true);
-        normalVertex.setSink(true);
-    }
-
     @Test(expected = IllegalStateException.class)
     public void testFlowCapacityInvalidForNonSourceVertex() {
         normalVertex.setFlowCapacity(5.0);

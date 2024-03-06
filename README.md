@@ -1,3 +1,5 @@
+##### The problem description and research report is in the `Game_theory_report.pdf` file in the root directory.
+
 ## Installation
 
 Download the Maven dependencies.
